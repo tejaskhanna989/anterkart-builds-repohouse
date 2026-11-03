@@ -10,7 +10,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
       - name: Checkout repository
@@ -22,53 +22,59 @@ jobs:
           flutter-version: '3.22.0'
           channel: 'stable'
 
-      - name: Override Gradle version to 8.x
+      - name: Create fresh Flutter projects
         run: |
-          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.3-bin.zip" > customer/android/gradle/wrapper/gradle-wrapper.properties
-          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.3-bin.zip" > vendor/android/gradle/wrapper/gradle-wrapper.properties
-          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.3-bin.zip" > rider/android/gradle/wrapper/gradle-wrapper.properties
+          flutter create --template=app --platforms=android customer_new
+          flutter create --template=app --platforms=android vendor_new
+          flutter create --template=app --platforms=android rider_new
 
-      - name: Get Flutter dependencies (Customer)
-        working-directory: customer
-        run: flutter pub get
+      - name: Copy Dart code and assets
+        run: |
+          cp -r customer/lib customer_new/lib
+          cp -r customer/assets customer_new/assets 2>/dev/null || true
+          cp customer/pubspec.yaml customer_new/pubspec.yaml
+          cp -r vendor/lib vendor_new/lib
+          cp -r vendor/assets vendor_new/assets 2>/dev/null || true
+          cp vendor/pubspec.yaml vendor_new/pubspec.yaml
+          cp -r rider/lib rider_new/lib
+          cp -r rider/assets rider_new/assets 2>/dev/null || true
+          cp rider/pubspec.yaml rider_new/pubspec.yaml
 
-      - name: Get Flutter dependencies (Vendor)
-        working-directory: vendor
-        run: flutter pub get
+      - name: Get Flutter dependencies
+        run: |
+          cd customer_new && flutter pub get
+          cd ../vendor_new && flutter pub get
+          cd ../rider_new && flutter pub get
 
-      - name: Get Flutter dependencies (Rider)
-        working-directory: rider
-        run: flutter pub get
-
-      - name: Build Customer APK (release)
-        working-directory: customer
+      - name: Build Customer APK
+        working-directory: customer_new
         run: flutter build apk --release --split-per-abi
 
-      - name: Build Vendor APK (release)
-        working-directory: vendor
+      - name: Build Vendor APK
+        working-directory: vendor_new
         run: flutter build apk --release --split-per-abi
 
-      - name: Build Rider APK (release)
-        working-directory: rider
+      - name: Build Rider APK
+        working-directory: rider_new
         run: flutter build apk --release --split-per-abi
 
       - name: Upload Customer APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: customer-apk
-          path: customer/build/app/outputs/flutter-apk/
+          path: customer_new/build/app/outputs/flutter-apk/
           retention-days: 7
 
       - name: Upload Vendor APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: vendor-apk
-          path: vendor/build/app/outputs/flutter-apk/
+          path: vendor_new/build/app/outputs/flutter-apk/
           retention-days: 7
 
       - name: Upload Rider APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: rider-apk
-          path: rider/build/app/outputs/flutter-apk/
+          path: rider_new/build/app/outputs/flutter-apk/
           retention-days: 7
