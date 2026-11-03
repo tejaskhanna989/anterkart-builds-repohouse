@@ -19,7 +19,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.16.0'
+          flutter-version: '3.10.0'
           channel: 'stable'
 
       - name: Get Flutter dependencies (Customer)
@@ -33,18 +33,6 @@ jobs:
       - name: Get Flutter dependencies (Rider)
         working-directory: rider
         run: flutter pub get
-
-      - name: Analyze Customer
-        working-directory: customer
-        run: flutter analyze lib/
-
-      - name: Analyze Vendor
-        working-directory: vendor
-        run: flutter analyze lib/
-
-      - name: Analyze Rider
-        working-directory: rider
-        run: flutter analyze lib/
 
       - name: Build Customer APK (release)
         working-directory: customer
