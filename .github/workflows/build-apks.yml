@@ -24,9 +24,9 @@ jobs:
 
       - name: Override Gradle version to 8.x
         run: |
-          cd customer/android && echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.3-bin.zip" > gradle/wrapper/gradle-wrapper.properties
-          cd ../vendor && echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.3-bin.zip" > gradle/wrapper/gradle-wrapper.properties
-          cd ../rider && echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.3-bin.zip" > gradle/wrapper/gradle-wrapper.properties
+          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.3-bin.zip" > customer/android/gradle/wrapper/gradle-wrapper.properties
+          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.3-bin.zip" > vendor/android/gradle/wrapper/gradle-wrapper.properties
+          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.3-bin.zip" > rider/android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Get Flutter dependencies (Customer)
         working-directory: customer
