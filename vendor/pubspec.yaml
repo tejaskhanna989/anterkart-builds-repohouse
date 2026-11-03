@@ -19,7 +19,6 @@ dependencies:
   url_launcher: ^6.1.0
   google_fonts: ^6.1.0
   permission_handler: ^11.0.0
-  audioplayers: ^6.1.0
 
 dev_dependencies:
   flutter_test:
