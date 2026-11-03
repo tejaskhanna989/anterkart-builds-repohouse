@@ -1,5 +1,5 @@
 name: food_multi_customer
-description: Food Multi Customer App - Restaurant Food Delivery
+description: Food Multi Customer App
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -9,17 +9,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  http: ^1.1.0
-  shared_preferences: ^2.2.0
-  provider: ^6.1.0
-  flutter_map: ^6.0.0
-  latlong2: ^0.9.0
-  cached_network_image: ^3.3.0
-  shimmer: ^3.0.0
-  badges: ^3.1.0
-  intl: ^0.19.0
-  url_launcher: ^6.1.0
-  google_fonts: ^6.1.0
 
 dev_dependencies:
   flutter_test:
@@ -28,5 +17,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/images/
