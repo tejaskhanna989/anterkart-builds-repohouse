@@ -1,0 +1,54 @@
+# Flutter/Dart
+.dart_tool/
+**/.dart_tool/
+.build/
+**/.build/
+android/.gradle/
+android/app/.gradle/
+**/.gradle/
+android/keystore.properties
+ios/.symlinks/
+ios/Flutter/App.framework/
+ios/Flutter/Generated.xcconfig/
+ios/Flutter/app.flx/
+ios/Flutter/app.xcconfig/
+ios/Flutter/Flutter.app.dSYM/
+ios/Runner.app.dSYM/
+android/key.properties
+android/key.jks
+android/app/key.jks
+android/app/key.properties
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+.metadata
+**/.metadata
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build outputs
+*.apk
+*.aab
+*.ipa
+/build/
+**/build/
+
+# Flutter web
+/web/
+
+# Mac metadata
+*.xcodeproj/
+
+# Android signing
+*.jks
+*.keystore
+
+# Android build reports
+android/build/reports/
+android/app/build/reports/
+**/build/reports/

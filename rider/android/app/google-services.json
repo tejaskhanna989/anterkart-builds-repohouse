@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "933566604200",
+    "project_id": "otam-zo",
+    "storage_bucket": "otam-zo.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:933566604200:android:058e04a4ce8adc877af39d",
+        "android_client_info": {
+          "package_name": "com.otamzo.rider"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_LR9aPI2qb332VTprlzjD-Xmiuuaix3w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:933566604200:android:da72b4c31a772c877af39d",
+        "android_client_info": {
+          "package_name": "com.otamzo.store"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_LR9aPI2qb332VTprlzjD-Xmiuuaix3w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:933566604200:android:87f5a91910d554ad7af39d",
+        "android_client_info": {
+          "package_name": "com.otamzo.vendor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_LR9aPI2qb332VTprlzjD-Xmiuuaix3w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

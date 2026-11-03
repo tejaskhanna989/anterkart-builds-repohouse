@@ -1,0 +1,83 @@
+name: Build APKs
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+          channel: 'stable'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Get Flutter dependencies (Customer)
+        working-directory: customer
+        run: flutter pub get
+
+      - name: Get Flutter dependencies (Vendor)
+        working-directory: vendor
+        run: flutter pub get
+
+      - name: Get Flutter dependencies (Rider)
+        working-directory: rider
+        run: flutter pub get
+
+      - name: Analyze Customer
+        working-directory: customer
+        run: flutter analyze lib/
+
+      - name: Analyze Vendor
+        working-directory: vendor
+        run: flutter analyze lib/
+
+      - name: Analyze Rider
+        working-directory: rider
+        run: flutter analyze lib/
+
+      - name: Build Customer APK (release)
+        working-directory: customer
+        run: flutter build apk --release --split-per-abi
+
+      - name: Build Vendor APK (release)
+        working-directory: vendor
+        run: flutter build apk --release --split-per-abi
+
+      - name: Build Rider APK (release)
+        working-directory: rider
+        run: flutter build apk --release --split-per-abi
+
+      - name: Upload Customer APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: customer-apk
+          path: customer/build/app/outputs/flutter-apk/
+          retention-days: 7
+
+      - name: Upload Vendor APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vendor-apk
+          path: vendor/build/app/outputs/flutter-apk/
+          retention-days: 7
+
+      - name: Upload Rider APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rider-apk
+          path: rider/build/app/outputs/flutter-apk/
+          retention-days: 7
