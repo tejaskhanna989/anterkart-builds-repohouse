@@ -19,8 +19,14 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.3.0'
+          flutter-version: '3.22.0'
           channel: 'stable'
+
+      - name: Override Gradle version to 8.x
+        run: |
+          cd customer/android && echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.3-bin.zip" > gradle/wrapper/gradle-wrapper.properties
+          cd ../vendor && echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.3-bin.zip" > gradle/wrapper/gradle-wrapper.properties
+          cd ../rider && echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.3-bin.zip" > gradle/wrapper/gradle-wrapper.properties
 
       - name: Get Flutter dependencies (Customer)
         working-directory: customer
