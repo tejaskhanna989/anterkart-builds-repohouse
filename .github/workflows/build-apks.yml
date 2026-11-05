@@ -49,13 +49,22 @@ jobs:
           cp -r rider/assets rider_new/assets 2>/dev/null || true
           cp rider/pubspec.yaml rider_new/pubspec.yaml
 
-      - name: Fix Gradle Kotlin version
+      - name: Fix Kotlin version
         run: |
           for app in customer_new vendor_new rider_new; do
-            if grep -q 'ext.kotlin_version' $app/android/build.gradle; then
-              sed -i 's/ext.kotlin_version = .*/ext.kotlin_version = '\''1.9.24'\''/' $app/android/build.gradle
-            fi
+            # Update Kotlin plugin version in settings.gradle or build.gradle
+            find $app/android -name "build.gradle*" -o -name "settings.gradle*" | while read f; do
+              # For older format (build.gradle with ext.kotlin_version)
+              sed -i 's/ext.kotlin_version = .*/ext.kotlin_version = "1.9.24"/' "$f"
+              
+              # For newer format (plugins block with kotlin android)
+              sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.24"/' "$f"
+              sed -i 's/id("org.jetbrains.kotlin.android") version "[^"]*"/id("org.jetbrains.kotlin.android") version "1.9.24"/' "$f"
+              sed -i 's/id "org.jetbrains.kotlin.android" version '\''[^'\'']*'\''/id "org.jetbrains.kotlin.android" version "1.9.24"/' "$f"
+            done
           done
+          echo "---"
+          grep -rn "kotlin" customer_new/android/build.gradle customer_new/android/settings.gradle* 2>/dev/null | head
 
       - name: Get Flutter dependencies
         run: |
