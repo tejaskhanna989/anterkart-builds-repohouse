@@ -49,6 +49,14 @@ jobs:
           cp -r rider/assets rider_new/assets 2>/dev/null || true
           cp rider/pubspec.yaml rider_new/pubspec.yaml
 
+      - name: Fix Gradle Kotlin version
+        run: |
+          for app in customer_new vendor_new rider_new; do
+            if grep -q 'ext.kotlin_version' $app/android/build.gradle; then
+              sed -i 's/ext.kotlin_version = .*/ext.kotlin_version = '\''1.9.24'\''/' $app/android/build.gradle
+            fi
+          done
+
       - name: Get Flutter dependencies
         run: |
           cd customer_new && flutter pub get
