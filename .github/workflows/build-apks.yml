@@ -28,6 +28,18 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      - name: Ensure Android SDK platforms (API 34-35)
+        run: |
+          # Find sdkmanager
+          SDKMANAGER="$(find $ANDROID_HOME $ANDROID_SDK_ROOT /usr/local/lib/android/sdk -name sdkmanager 2>/dev/null | head -1)"
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager not found, relying on runner default";
+          else
+            yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+            yes | "$SDKMANAGER" "platforms;android-34" "platforms;android-35" "build-tools;34.0.0" "build-tools;35.0.0" 2>&1 | tail -10 || true
+          fi
+          ls $ANDROID_HOME/platforms 2>/dev/null || ls /usr/local/lib/android/sdk/platforms 2>/dev/null || true
+
       - name: Create fresh Flutter projects
         run: |
           flutter create --template=app --platforms=android customer_new
