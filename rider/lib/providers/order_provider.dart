@@ -70,6 +70,14 @@ class OrderProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> reofferOrder(int orderId) async {
+    final res = await ApiService.post('rider/orders/reoffer.php', body: {'order_id': orderId}, auth: true);
+    if (res['success'] == true) {
+      return true;
+    }
+    return false;
+  }
+
   Future<Map<String, dynamic>> respondOffer(int offerId, bool accept) async {
     final res = await ApiService.post('rider/orders/respond.php',
         body: {'offer_id': offerId, 'action': accept ? 'accept' : 'decline'}, auth: true);

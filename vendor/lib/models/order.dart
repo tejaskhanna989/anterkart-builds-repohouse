@@ -21,6 +21,10 @@ class Order {
   final String pickupCode;
   final int deliveryBoyId;
   final String riderArrivedAt;
+  final double? riderLat;
+  final double? riderLng;
+  final String? riderName;
+  final String? riderPhone;
 
   Order({
     required this.id,
@@ -43,6 +47,10 @@ class Order {
     this.pickupCode = '',
     this.deliveryBoyId = 0,
     this.riderArrivedAt = '',
+    this.riderLat,
+    this.riderLng,
+    this.riderName,
+    this.riderPhone,
   });
 
   factory Order.fromJson(Map<String, dynamic> j) {
