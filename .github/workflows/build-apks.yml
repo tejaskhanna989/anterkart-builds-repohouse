@@ -63,16 +63,16 @@ jobs:
               sed -i 's/id "org.jetbrains.kotlin.android" version '\''[^'\'']*'\''/id "org.jetbrains.kotlin.android" version "1.9.24"/' "$f"
             done
           done
-        # Force compileSdk/targetSdk to API 34 (stable on runner)
-        for app in customer_new vendor_new rider_new; do
-          f="$app/android/app/build.gradle"
-          if [ -f "$f" ]; then
-            sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/' "$f"
-            sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/' "$f"
-            sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 34/' "$f"
-            sed -i 's/compileSdkVersion = flutter.compileSdkVersion/compileSdkVersion = 34/' "$f"
-          fi
-        done
+                # Force compileSdk/targetSdk to API 34 (stable on runner)
+                for app in customer_new vendor_new rider_new; do
+                  f="$app/android/app/build.gradle"
+                  if [ -f "$f" ]; then
+                    sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/' "$f"
+                    sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/' "$f"
+                    sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 34/' "$f"
+                    sed -i 's/compileSdkVersion = flutter.compileSdkVersion/compileSdkVersion = 34/' "$f"
+                  fi
+                done
           echo "---"
           grep -rn "kotlin" customer_new/android/build.gradle customer_new/android/settings.gradle* 2>/dev/null | head
 
