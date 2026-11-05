@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import '../services/api_service.dart';
 
 class LocationProvider extends ChangeNotifier {

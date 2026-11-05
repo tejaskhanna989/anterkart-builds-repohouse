@@ -1,10 +1,10 @@
-import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 /// Looping audible alarm for new rider orders. Rings until [stop] is called
 /// (rider taps Accept / Decline / dismisses the new-order dialog).
 class OrderAlarm {
   OrderAlarm._();
-  static final FlutterRingtonePlayer _player = FlutterRingtonePlayer();
+  static final AudioPlayer _player = AudioPlayer();
   static bool _ringing = false;
 
   static bool get isRinging => _ringing;
@@ -14,7 +14,7 @@ class OrderAlarm {
     _ringing = true;
     try {
       await _player.setReleaseMode(ReleaseMode.loop);
-      await _player.playFromAsset('assets/audio/new_order_alarm.wav');
+      await _player.play(AssetSource('audio/new_order_alarm.wav'));
     } catch (_) {
       _ringing = false;
     }
