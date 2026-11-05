@@ -23,7 +23,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _tab = 0;
   Timer? _pollTimer;
-  final Set<int> _acked = {};
+  Set<int> _knownPending = {};
   bool _dialogOpen = false;
 
   @override
@@ -32,9 +32,9 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await context.read<OrderProvider>().loadOrders();
       if (mounted) {
+        _knownPending = context.read<OrderProvider>().pendingIds;
         context.read<StatsProvider>().loadStats();
         _startPolling();
-        _checkForNewOrders();
       }
       // Ring + refresh when a push lands while the app is open.
       OneSignalService.addListeners();
@@ -55,30 +55,27 @@ class _HomeScreenState extends State<HomeScreen> {
     _pollTimer?.cancel();
     // Vendors keep this app open in the kitchen; poll so a new order rings
     // even if the push is missed or arrives silently.
-    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) async {
+    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) async {
       if (!mounted) return;
       await context.read<OrderProvider>().loadOrders();
       if (mounted) _checkForNewOrders();
     });
   }
 
-  /// Ring until every pending order is accepted: anything pending and not
-  /// acked re-rings (app start, push tap, View-dismiss all come back here).
+  /// Compare pending ids before/after refresh; ring for genuinely new orders.
   void _checkForNewOrders() {
     final prov = context.read<OrderProvider>();
     final current = prov.pendingIds;
-    final unacked = current.difference(_acked);
-    if (unacked.isNotEmpty && mounted && !_dialogOpen && prov.awaitingOrders.isNotEmpty) {
+    final fresh = current.difference(_knownPending);
+    _knownPending = current;
+    if (fresh.isNotEmpty && mounted && !_dialogOpen) {
       final order = prov.awaitingOrders.firstWhere(
-        (o) => unacked.contains(o.id),
+        (o) => fresh.contains(o.id),
         orElse: () => prov.awaitingOrders.first,
       );
       _ringForOrder(order);
     }
-    if (current.isEmpty) {
-      _acked.clear();
-      OrderAlarm.stop();
-    }
+    if (current.isEmpty) OrderAlarm.stop();
   }
 
   Future<void> _ringForOrder(Order order) async {
@@ -112,7 +109,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), foregroundColor: Colors.white),
             onPressed: () async {
-              _acked.add(order.id);
               await OrderAlarm.stop();
               if (mounted) Navigator.pop(ctx);
               _advanceOrder(order.id, 'confirmed');
@@ -136,6 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _refreshAll() async {
     await context.read<OrderProvider>().loadOrders();
     if (mounted) {
+      _knownPending = context.read<OrderProvider>().pendingIds;
       await context.read<StatsProvider>().loadStats();
     }
   }
@@ -302,6 +299,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final ok = await context.read<OrderProvider>().updateStatus(orderId, next);
     if (!mounted) return;
     if (next == 'confirmed') OrderAlarm.stop();
+    if (mounted) _knownPending = context.read<OrderProvider>().pendingIds;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(ok
           ? (next == 'confirmed'
