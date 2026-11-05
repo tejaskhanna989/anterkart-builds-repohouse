@@ -36,12 +36,15 @@ jobs:
 
       - name: Copy Dart code and assets
         run: |
+          # Customer
           cp -r customer/lib customer_new/lib
           cp -r customer/assets customer_new/assets 2>/dev/null || true
           cp customer/pubspec.yaml customer_new/pubspec.yaml
+          # Vendor
           cp -r vendor/lib vendor_new/lib
           cp -r vendor/assets vendor_new/assets 2>/dev/null || true
           cp vendor/pubspec.yaml vendor_new/pubspec.yaml
+          # Rider
           cp -r rider/lib rider_new/lib
           cp -r rider/assets rider_new/assets 2>/dev/null || true
           cp rider/pubspec.yaml rider_new/pubspec.yaml
