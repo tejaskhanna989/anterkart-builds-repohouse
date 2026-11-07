@@ -85,26 +85,23 @@ jobs:
               $content = Get-Content $rootBuildGradle -Raw
               
               # Replace kotlin_version line - handles '<latest-version>' and version numbers
-              $originalContent = $content
-              $content = $content -replace '(kotlin_version\s*=\s*)[\'"][^\'"]*[\'"]', '${1}"1.9.10"'
+              # Use a simpler regex that works in PowerShell
+              $pattern = 'kotlin_version\s*=\s*["'"'"']([^"'"'"']*)["'"'"']'
+              $replacement = 'kotlin_version = "1.9.10"'
+              $content = $content -replace $pattern, $replacement
               
               # Also handle classpath in buildscript dependencies
-              $content = $content -replace 'classpath\s*[\'"]org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+[\'"]', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
+              $content = $content -replace 'classpath\s*["'"'"']org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+["'"'"']', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
               
-              if ($content -ne $originalContent) {
-                Set-Content -Path $rootBuildGradle -Value $content -Encoding UTF8
-                Write-Host "  UPDATED: $rootBuildGradle"
-              } else {
-                Write-Host "  NO CHANGE NEEDED: $rootBuildGradle"
-              }
+              Set-Content -Path $rootBuildGradle -Value $content -Encoding UTF8
+              Write-Host "  UPDATED: $rootBuildGradle"
               
               # Verify
               $newContent = Get-Content $rootBuildGradle -Raw
-              if ($newContent -match 'kotlin_version\s*=\s*[\'"]1\.9\.10[\'"]') {
+              if ($newContent -match 'kotlin_version\s*=\s*["'"'"']1\.9\.10["'"'"']') {
                 Write-Host "  SUCCESS: kotlin_version is now 1.9.10"
               } else {
                 Write-Host "  WARNING: kotlin_version may not have been updated correctly"
-                Write-Host "  Content preview: $($newContent.Substring(0, [Math]::Min(500, $newContent.Length)))"
               }
             } else {
               Write-Host "  NOT FOUND: $rootBuildGradle"
@@ -115,15 +112,9 @@ jobs:
             if (Test-Path $appBuildGradle) {
               Write-Host "  Found: $appBuildGradle"
               $content = Get-Content $appBuildGradle -Raw
-              $originalContent = $content
-              $content = $content -replace 'classpath\s*[\'"]org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+[\'"]', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
-              
-              if ($content -ne $originalContent) {
-                Set-Content -Path $appBuildGradle -Value $content -Encoding UTF8
-                Write-Host "  UPDATED: $appBuildGradle"
-              } else {
-                Write-Host "  NO CHANGE NEEDED: $appBuildGradle"
-              }
+              $content = $content -replace 'classpath\s*["'"'"']org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+["'"'"']', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
+              Set-Content -Path $appBuildGradle -Value $content -Encoding UTF8
+              Write-Host "  UPDATED: $appBuildGradle"
             } else {
               Write-Host "  NOT FOUND: $appBuildGradle"
             }
@@ -133,15 +124,9 @@ jobs:
             if (Test-Path $settingsGradle) {
               Write-Host "  Found: $settingsGradle"
               $content = Get-Content $settingsGradle -Raw
-              $originalContent = $content
-              $content = $content -replace 'classpath\s*[\'"]org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+[\'"]', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
-              
-              if ($content -ne $originalContent) {
-                Set-Content -Path $settingsGradle -Value $content -Encoding UTF8
-                Write-Host "  UPDATED: $settingsGradle"
-              } else {
-                Write-Host "  NO CHANGE NEEDED: $settingsGradle"
-              }
+              $content = $content -replace 'classpath\s*["'"'"']org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+["'"'"']', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
+              Set-Content -Path $settingsGradle -Value $content -Encoding UTF8
+              Write-Host "  UPDATED: $settingsGradle"
             } else {
               Write-Host "  NOT FOUND: $settingsGradle"
             }
