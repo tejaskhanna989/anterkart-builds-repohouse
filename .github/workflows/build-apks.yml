@@ -65,11 +65,26 @@ jobs:
 
       - name: Fix Kotlin version in generated projects
         shell: pwsh
+        working-directory: ${{ github.workspace }}
         run: |
-          Write-Host "=== Fixing Kotlin version ==="
-          Write-Host "Current directory: $(Get-Location)"
-          Write-Host "Repository root: $env:GITHUB_WORKSPACE"
-          python3 $env:GITHUB_WORKSPACE\.github\scripts\fix_kotlin_version.py
+          Write-Host "=== Starting Kotlin version fix ==="
+          Write-Host "Working directory: $(Get-Location)"
+          Write-Host "GITHUB_WORKSPACE: $env:GITHUB_WORKSPACE"
+          Write-Host "Projects exist:"
+          Write-Host "  customer_new: $(Test-Path customer_new)"
+          Write-Host "  vendor_new: $(Test-Path vendor_new)"
+          Write-Host "  rider_new: $(Test-Path rider_new)"
+          
+          Write-Host "Running Python fix script..."
+          python3 .github/scripts/fix_kotlin_version.py
+          
+          $exitCode = $LASTEXITCODE
+          Write-Host "Python script exited with code: $exitCode"
+          if ($exitCode -ne 0) {
+            Write-Error "Python fix script failed with exit code $exitCode"
+            exit $exitCode
+          }
+          Write-Host "=== Kotlin version fix completed ==="
 
       - name: Copy Dart code, assets, and Android config
         shell: pwsh
