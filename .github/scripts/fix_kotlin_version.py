@@ -54,9 +54,25 @@ def fix_kotlin_version(project_dir):
         original_content = content
         
         # Fix the plugins block - add version to kotlin-android plugin
+        # First, let's see what the plugins block looks like
+        print('Searching for kotlin-android in plugins block...', flush=True)
+        for m in re.finditer(r'kotlin-android', content):
+            start = max(0, m.start() - 100)
+            end = min(len(content), m.end() + 100)
+            print(f'Found "kotlin-android" at position {m.start()}: ...{content[start:end]}...', flush=True)
+        
+        # Fix the plugins block - add version to kotlin-android plugin
         # Match: id "kotlin-android" (without version) and add version
+        # We need to match the id line and add version if not already present
+        def add_version(match):
+            full_match = match.group(0)
+            if 'version' in full_match:
+                return full_match
+            return full_match.rstrip() + ' version "1.9.10"'
+        
+        # Match id "kotlin-android" or id 'kotlin-android' that doesn't have version on the same line
         content = re.sub(
-            r'(id\s+[\'"]kotlin-android[\'"])\s*(?![\s\S]*version)',
+            r'(id\s+[\'"]kotlin-android[\'"])(?![^\n]*version)',
             r'\1 version "1.9.10"',
             content
         )
