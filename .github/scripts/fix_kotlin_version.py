@@ -21,9 +21,9 @@ def fix_kotlin_version(project_dir):
     print(f'Project dir absolute: {os.path.abspath(project_dir)}', flush=True)
     print(f'Project dir exists: {os.path.exists(project_dir)}', flush=True)
     
-    # Use Kotlin 1.9.10 with AGP 8.1.0 for better compatibility
-    KOTLIN_VERSION = '1.9.10'
-    AGP_VERSION = '8.1.0'
+    # Use Kotlin 1.7.10 to match the version the Flutter plugin applies internally
+    KOTLIN_VERSION = '1.7.10'
+    AGP_VERSION = '7.4.2'
     
     # Fix ROOT build.gradle (project level) - use standard Flutter structure
     root_build_gradle = os.path.join(project_dir, 'android', 'build.gradle')
@@ -86,7 +86,7 @@ tasks.register("clean", Delete) {{
         else:
             print(f'android dir does not exist: {android_dir}', flush=True)
     
-    # Fix APP build.gradle (app level) - use plugins DSL with explicit kotlin-android version
+    # Fix APP build.gradle (app level) - use apply plugin instead of plugins DSL for kotlin-android
     app_build_gradle = os.path.join(project_dir, 'android', 'app', 'build.gradle')
     print(f'Looking for APP: {app_build_gradle}', flush=True)
     print(f'APP Exists: {os.path.exists(app_build_gradle)}', flush=True)
@@ -100,12 +100,19 @@ tasks.register("clean", Delete) {{
         
         original_content = content
         
-        # Replace the plugins block to use explicit kotlin version
-        # Match: id "kotlin-android" or id 'kotlin-android' and replace with versioned version
+        # Remove id "kotlin-android" from plugins block
         content = re.sub(
-            r'(id\s+[\'"]kotlin-android[\'"])',
-            f'id "org.jetbrains.kotlin.android" version "{KOTLIN_VERSION}"',
+            r'\n\s*id\s+[\'"]kotlin-android[\'"]\s*',
+            '',
             content
+        )
+        
+        # Add apply plugin: "kotlin-android" after the plugins block
+        content = re.sub(
+            r'(plugins\s*\{[^}]*\})',
+            r'\1\n\napply plugin: "kotlin-android"',
+            content,
+            count=1
         )
         
         # Also handle classpath in buildscript dependencies
@@ -114,6 +121,24 @@ tasks.register("clean", Delete) {{
             f'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:{KOTLIN_VERSION}"',
             content
         )
+        
+        # Add buildscript block to app-level build.gradle to force kotlin version
+        if 'buildscript {' not in content:
+            # Add buildscript block at the beginning
+            buildscript_block = f'''buildscript {{
+    ext.kotlin_version = '{KOTLIN_VERSION}'
+    repositories {{
+        google()
+        mavenCentral()
+    }}
+    dependencies {{
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:{KOTLIN_VERSION}"
+    }}
+}}
+
+'''
+            content = buildscript_block + content
+            print('APP: Added buildscript block to force kotlin version', flush=True)
         
         if content != original_content:
             with open(app_build_gradle, 'w') as f:
@@ -125,11 +150,12 @@ tasks.register("clean", Delete) {{
         # Verify
         with open(app_build_gradle, 'r') as f:
             new_content = f.read()
-        if f'version "{KOTLIN_VERSION}"' in new_content:
-            print(f'SUCCESS: kotlin-android plugin version {KOTLIN_VERSION} set in app build.gradle', flush=True)
+        if 'apply plugin: "kotlin-android"' in new_content:
+            print('SUCCESS: apply plugin: "kotlin-android" added in app build.gradle', flush=True)
         else:
-            print('WARNING: kotlin-android plugin version may not have been set correctly', flush=True)
-            print(f'APP New content preview: {new_content[:1000]}', flush=True)
+            print('WARNING: apply plugin: "kotlin-android" may not have been added correctly', flush=True)
+            for m in re.finditer(r'apply plugin', new_content):
+                print(f'Found "apply plugin" at position {m.start()}: ...{new_content[max(0,m.start()-50):m.end()+50]}...', flush=True)
     else:
         print(f'NOT FOUND APP: {app_build_gradle}', flush=True)
     
