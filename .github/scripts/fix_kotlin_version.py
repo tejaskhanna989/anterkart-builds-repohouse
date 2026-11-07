@@ -60,7 +60,21 @@ def fix_kotlin_version(project_dir):
             content = buildscript_block + content
         
         # Also add ext.kotlin_version at root project level (for Flutter plugin)
-        if 'ext {' not in content or 'kotlin_version' not in content:
+        # Check if there's an ext block OUTSIDE of buildscript (at root level)
+        # Look for ext { after the buildscript block ends
+        has_root_ext = False
+        if 'buildscript {' in content:
+            # Find the end of buildscript block
+            buildscript_end = content.find('}\n\n', content.find('buildscript {'))
+            if buildscript_end == -1:
+                buildscript_end = content.find('}\n', content.find('buildscript {'))
+            if buildscript_end != -1:
+                # Check if there's ext { after buildscript
+                after_buildscript = content[buildscript_end:]
+                if 'ext {' in after_buildscript and 'kotlin_version' in after_buildscript:
+                    has_root_ext = True
+        
+        if not has_root_ext:
             print('ROOT: Adding ext.kotlin_version at root project level', flush=True)
             # Add after buildscript block or at the beginning
             if 'buildscript {' in content:
