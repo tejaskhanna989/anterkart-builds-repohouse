@@ -29,7 +29,7 @@ jobs:
           java-version: '17'
 
       # Patch Flutter SDK's gradle plugin to replace groovy.xml.QName and groovy.xml.XmlParser
-      # with alternatives that don't require the groovy-xml module
+      # with standard Java XML APIs that don't require the groovy-xml module
       - name: Patch Flutter SDK gradle plugin (fix Groovy QName/XmlParser)
         run: |
           # Find the flutter.groovy file in the Flutter SDK
@@ -48,11 +48,17 @@ jobs:
             # 3. Replace QName with javax.xml.namespace.QName (standard Java API)
             sed -i 's/\bQName\b/javax.xml.namespace.QName/g' "$FLUTTER_GROOVY"
             
-            # 4. Replace XmlParser with groovy.util.XmlParser (in groovy module, not groovy-xml)
-            sed -i 's/\bXmlParser\b/groovy.util.XmlParser/g' "$FLUTTER_GROOVY"
+            # 4. Replace XmlParser with standard Java DocumentBuilder (no Groovy XML module needed)
+            # We'll replace the XmlParser usage with standard Java DocumentBuilder
+            sed -i 's/new groovy.util.XmlParser()/newXmlParser()/g' "$FLUTTER_GROOVY"
+            sed -i 's/new groovy.xml.XmlParser()/newXmlParser()/g' "$FLUTTER_GROOVY"
             
-            echo "Patched flutter.groovy - replaced QName and XmlParser with alternatives"
-            # Verify the changes
+            # Add a helper method at the top of the script (after package declaration)
+            # This creates a newXmlParser() method that uses standard Java DocumentBuilder
+            # We'll insert it after the package declaration
+            awk '/^package / { print; print ""; print "import javax.xml.parsers.DocumentBuilderFactory"; print "import javax.xml.parsers.DocumentBuilder"; print "import org.w3c.dom.Document"; print "import org.w3c.dom.Node"; print "import org.w3c.dom.NodeList"; print "import org.w3c.dom.Element"; print "import org.xml.sax.InputSource"; print "import java.io.StringReader"; print ""; print "def newXmlParser() {"; print "  return [parse: { input ->"; print "    def factory = DocumentBuilderFactory.newInstance()"; print "    def builder = factory.newDocumentBuilder()"; print "    def inputSource = new InputSource(new StringReader(input))"; print "    def doc = builder.parse(inputSource)"; print "    return new XmlSlurperAdapter(doc)"; print "  }]"; print "}"; print ""; next } 1' "$FLUTTER_GROOVY" > "$FLUTTER_GROOVY.tmp" && mv "$FLUTTER_GROOVY.tmp" "$FLUTTER_GROOVY"
+            
+            echo "Patched flutter.groovy - replaced QName and XmlParser with standard Java APIs"
             echo "Checking for remaining QName/XmlParser references:"
             grep -n "QName\|XmlParser" "$FLUTTER_GROOVY" || echo "No references found"
           else
