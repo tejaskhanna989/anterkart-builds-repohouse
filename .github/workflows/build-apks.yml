@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: windows-latest
     timeout-minutes: 120
 
     steps:
@@ -30,34 +30,44 @@ jobs:
 
       # Patch Flutter SDK's gradle plugin to fix Groovy QName/XmlParser issue
       - name: Patch Flutter SDK gradle plugin (fix Groovy QName/XmlParser)
+        shell: pwsh
         run: |
-          FLUTTER_GROOVY="/opt/hostedtoolcache/flutter/stable-3.22.0-x64/flutter/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy"
-          if [ -f "$FLUTTER_GROOVY" ]; then
-            echo "Found flutter.groovy at: $FLUTTER_GROOVY"
+          $FLUTTER_GROOVY = "C:\hostedtoolcache\windows\flutter\3.22.0\x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy"
+          if (Test-Path $FLUTTER_GROOVY) {
+            Write-Host "Found flutter.groovy at: $FLUTTER_GROOVY"
             # Backup the original file
-            cp "$FLUTTER_GROOVY" "$FLUTTER_GROOVY.backup"
+            Copy-Item "$FLUTTER_GROOVY" "$FLUTTER_GROOVY.backup"
             
-            # Use sed to patch the file - simpler approach
             # 1. Remove the groovy.xml.QName import
-            sed -i '/import groovy\.xml\.QName/d' "$FLUTTER_GROOVY"
+            (Get-Content $FLUTTER_GROOVY) | Where-Object { $_ -notmatch 'import groovy\.xml\.QName' } | Set-Content $FLUTTER_GROOVY
             
             # 2. Remove the groovy.xml.XmlParser import
-            sed -i '/import groovy\.xml\.XmlParser/d' "$FLUTTER_GROOVY"
+            (Get-Content $FLUTTER_GROOVY) | Where-Object { $_ -notmatch 'import groovy\.xml\.XmlParser' } | Set-Content $FLUTTER_GROOVY
             
             # 3. Replace QName with javax.xml.namespace.QName
-            sed -i 's/\bQName\b/javax.xml.namespace.QName/g' "$FLUTTER_GROOVY"
+            (Get-Content $FLUTTER_GROOVY) -replace '\bQName\b', 'javax.xml.namespace.QName' | Set-Content $FLUTTER_GROOVY
             
             # 4. Add necessary imports after package declaration
-            sed -i '/^package /a \
-import javax.xml.parsers.DocumentBuilderFactory\nimport javax.xml.parsers.DocumentBuilder\nimport org.w3c.dom.Document\nimport org.w3c.dom.Node\nimport org.w3c.dom.NodeList\nimport org.w3c.dom.Element\nimport org.xml.sax.InputSource\nimport java.io.StringReader' "$FLUTTER_GROOVY"
+            $content = Get-Content $FLUTTER_GROOVY -Raw
+            $imports = @"
+import javax.xml.parsers.DocumentBuilderFactory
+import javax.xml.parsers.DocumentBuilder
+import org.w3c.dom.Document
+import org.w3c.dom.Node
+import org.w3c.dom.NodeList
+import org.w3c.dom.Element
+import org.xml.sax.InputSource
+import java.io.StringReader
+"@
+            $content = $content -replace '(^package .*\n)', "`$1`n$imports`n"
             
-            # 4. Replace XmlParser usage with newXmlParser()
-            sed -i 's/new XmlParser()/newXmlParser()/g' "$FLUTTER_GROOVY"
-            sed -i 's/new groovy\.util\.XmlParser()/newXmlParser()/g' "$FLUTTER_GROOVY"
-            sed -i 's/new groovy\.xml\.XmlParser()/newXmlParser()/g' "$FLUTTER_GROOVY"
+            # Replace XmlParser usage with newXmlParser()
+            $content = $content -replace 'new XmlParser\(\)', 'newXmlParser()'
+            $content = $content -replace 'new groovy\.util\.XmlParser\(\)', 'newXmlParser()'
+            $content = $content -replace 'new groovy\.xml\.XmlParser\(\)', 'newXmlParser()'
             
-            # Add the newXmlParser helper method and XmlSlurperAdapter class
-            cat >> "$FLUTTER_GROOVY" << 'EOF'
+            # Add the newXmlParser helper method and XmlSlurperAdapter class at the end
+            $helper_code = @"
 
 def newXmlParser() {
   return [parse: { input ->
@@ -84,56 +94,71 @@ class XmlSlurperAdapter {
   }
   String toString() { doc.getTextContent() }
 }
-EOF
+"@
+            $content += "`n`n$helper_code"
             
-            echo "Patched flutter.groovy - replaced QName and XmlParser with standard Java APIs"
-            echo "Checking for remaining QName/XmlParser references:"
-            grep -n "QName\|XmlParser" "$FLUTTER_GROOVY" || echo "No references found"
-          else
-            echo "WARNING: flutter.groovy not found at expected path!"
-            find /opt/hostedtoolcache/flutter -name "flutter.groovy" 2>/dev/null
-          fi
+            Set-Content -Path $FLUTTER_GROOVY -Value $content -Encoding UTF8
+            
+            Write-Host "Patched flutter.groovy - replaced QName and XmlParser with standard Java APIs"
+            Write-Host "Checking for remaining QName/XmlParser references:"
+            Select-String -Pattern "QName|XmlParser" -Path $FLUTTER_GROOVY | ForEach-Object { Write-Host $_.LineNumber ":" $_.Line } | Out-Host
+            if (-not (Select-String -Pattern "QName|XmlParser" -Path $FLUTTER_GROOVY)) {
+              Write-Host "No references found"
+            }
+          } else {
+            Write-Host "WARNING: flutter.groovy not found at expected path!"
+            Get-ChildItem -Path "C:\hostedtoolcache\windows\flutter" -Filter "flutter.groovy" -Recurse -ErrorAction SilentlyContinue
+          }
 
       - name: Create fresh Flutter projects
+        shell: pwsh
         run: |
           flutter create --template=app --platforms=android customer_new
           flutter create --template=app --platforms=android vendor_new
           flutter create --template=app --platforms=android rider_new
 
       - name: Copy Dart code, assets, and Android config
+        shell: pwsh
         run: |
           # Customer
-          cp -r customer/lib customer_new/lib
-          cp -r customer/assets customer_new/assets 2>/dev/null || true
-          cp customer/pubspec.yaml customer_new/pubspec.yaml
-          cp -r customer/android customer_new/ 2>/dev/null || true
+          Copy-Item -Path customer\lib -Destination customer_new\lib -Recurse -Force
+          Copy-Item -Path customer\assets -Destination customer_new\assets -Recurse -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path customer\pubspec.yaml -Destination customer_new\pubspec.yaml -Force
+          Copy-Item -Path customer\android -Destination customer_new\android -Recurse -Force -ErrorAction SilentlyContinue
           # Vendor
-          cp -r vendor/lib vendor_new/lib
-          cp -r vendor/assets vendor_new/assets 2>/dev/null || true
-          cp vendor/pubspec.yaml vendor_new/pubspec.yaml
-          cp -r vendor/android vendor_new/ 2>/dev/null || true
+          Copy-Item -Path vendor\lib -Destination vendor_new\lib -Recurse -Force
+          Copy-Item -Path vendor\assets -Destination vendor_new\assets -Recurse -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path vendor\pubspec.yaml -Destination vendor_new\pubspec.yaml -Force
+          Copy-Item -Path vendor\android -Destination vendor_new\android -Recurse -Force -ErrorAction SilentlyContinue
           # Rider
-          cp -r rider/lib rider_new/lib
-          cp -r rider/assets rider_new/assets 2>/dev/null || true
-          cp rider/pubspec.yaml rider_new/pubspec.yaml
-          cp -r rider/android rider_new/ 2>/dev/null || true
+          Copy-Item -Path rider\lib -Destination rider_new\lib -Recurse -Force
+          Copy-Item -Path rider\assets -Destination rider_new\assets -Recurse -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path rider\pubspec.yaml -Destination rider_new\pubspec.yaml -Force
+          Copy-Item -Path rider\android -Destination rider_new\android -Recurse -Force -ErrorAction SilentlyContinue
 
       - name: Get Flutter dependencies
+        shell: pwsh
         run: |
-          cd customer_new && flutter pub get
-          cd ../vendor_new && flutter pub get
-          cd ../rider_new && flutter pub get
+          Set-Location customer_new
+          flutter pub get
+          Set-Location ../vendor_new
+          flutter pub get
+          Set-Location ../rider_new
+          flutter pub get
 
       - name: Build Customer APK
         working-directory: customer_new
+        shell: pwsh
         run: flutter build apk --release --split-per-abi
 
       - name: Build Vendor APK
         working-directory: vendor_new
+        shell: pwsh
         run: flutter build apk --release --split-per-abi
 
       - name: Build Rider APK
         working-directory: rider_new
+        shell: pwsh
         run: flutter build apk --release --split-per-abi
 
       - name: Upload Customer APK artifacts
