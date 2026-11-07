@@ -20,10 +20,11 @@ def fix_kotlin_version(project_dir):
         
         print(f'Original content (first 1000 chars): {content[:1000]}', flush=True)
         
-        # Handle kotlin_version in ext block - this is where 'ext.kotlin_version = <latest-version>' is defined
+        # Handle kotlin_version in ext block - matches both 'ext.kotlin_version' and 'kotlin_version'
+        # Matches: ext.kotlin_version = '<latest-version>' or kotlin_version = '1.7.10'
         original_content = content
         content = re.sub(
-            r'(kotlin_version\s*=\s*)[\'"][^\'"]*[\'"]',
+            r'(?:ext\.)?(kotlin_version\s*=\s*)[\'"][^\'"]*[\'"]',
             r'\1"1.9.10"',
             content
         )
