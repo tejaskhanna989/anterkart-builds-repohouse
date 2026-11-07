@@ -23,8 +23,9 @@ content = re.sub(r'import groovy\.xml\.XmlParser\s*\n', '', content)
 # 3. Replace QName with javax.xml.namespace.QName (standard Java API)
 content = re.sub(r'\bQName\b', 'javax.xml.namespace.QName', content)
 
-# 4. Add necessary imports after package declaration
-imports = '''import javax.xml.parsers.DocumentBuilderFactory
+# 4. Add necessary imports - find the right place to insert them
+# The imports needed for the newXmlParser helper
+required_imports = '''import javax.xml.parsers.DocumentBuilderFactory
 import javax.xml.parsers.DocumentBuilder
 import org.w3c.dom.Document
 import org.w3c.dom.Node
@@ -34,8 +35,26 @@ import org.xml.sax.InputSource
 import java.io.StringReader
 '''
 
-# Add imports after package declaration
-content = re.sub(r'(^package .*\n)', r'\1\n' + imports + '\n', content, count=1)
+# Check if imports already exist
+if 'DocumentBuilderFactory' not in content:
+    # Try to find package declaration and add imports after it
+    package_match = re.search(r'(^package .*\n)', content, re.MULTILINE)
+    if package_match:
+        # Add imports after package declaration
+        insert_pos = package_match.end()
+        content = content[:insert_pos] + '\n' + required_imports + '\n' + content[insert_pos:]
+    else:
+        # No package declaration, add at the beginning after any shebang/comments
+        # Find first non-comment, non-empty line
+        lines = content.split('\n')
+        insert_idx = 0
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if stripped and not stripped.startswith('//') and not stripped.startswith('/*') and not stripped.startswith('*'):
+                insert_idx = i
+                break
+        lines.insert(insert_idx, required_imports)
+        content = '\n'.join(lines)
 
 # 5. Replace XmlParser usage with newXmlParser()
 content = re.sub(r'new XmlParser\(\)', 'newXmlParser()', content)
@@ -74,11 +93,29 @@ class XmlSlurperAdapter {
 
 """
 
-# Find the first 'def ' or 'class ' and insert before it
-content = re.sub(r'(^def |^class )', helper_code + r'\1', content, count=1, flags=re.MULTILINE)
+# Find the first 'def ' or 'class ' at the beginning of a line and insert before it
+match = re.search(r'(^def |^class )', content, re.MULTILINE)
+if match:
+    insert_pos = match.start()
+    content = content[:insert_pos] + helper_code + content[insert_pos:]
+else:
+    # If no def or class found, append at the end
+    content = content + '\n' + helper_code
 
 # Write the patched file
 with open(flutter_groovy, 'w') as f:
     f.write(content)
 
 print('Patched flutter.groovy successfully')
+
+# Verify the imports were added
+if 'DocumentBuilderFactory' in content and 'InputSource' in content and 'Document' in content:
+    print('VERIFIED: Required imports are present in patched file')
+else:
+    print('WARNING: Some required imports may be missing!')
+    if 'DocumentBuilderFactory' not in content:
+        print('  - Missing: DocumentBuilderFactory')
+    if 'InputSource' not in content:
+        print('  - Missing: InputSource')
+    if 'Document' not in content:
+        print('  - Missing: Document')
