@@ -48,15 +48,59 @@ jobs:
             # 3. Replace QName with javax.xml.namespace.QName (standard Java API)
             sed -i 's/\bQName\b/javax.xml.namespace.QName/g' "$FLUTTER_GROOVY"
             
-            # 4. Replace XmlParser with standard Java DocumentBuilder (no Groovy XML module needed)
-            # We'll replace the XmlParser usage with standard Java DocumentBuilder
-            sed -i 's/new groovy.util.XmlParser()/newXmlParser()/g' "$FLUTTER_GROOVY"
-            sed -i 's/new groovy.xml.XmlParser()/newXmlParser()/g' "$FLUTTER_GROOVY"
+            # 4. Add necessary imports at the top (after package declaration)
+            # Insert imports after the package declaration
+            sed -i '/^package /a \
+import javax.xml.parsers.DocumentBuilderFactory\nimport javax.xml.parsers.DocumentBuilder\nimport org.w3c.dom.Document\nimport org.w3c.dom.Node\nimport org.w3c.dom.NodeList\nimport org.w3c.dom.Element\nimport org.xml.sax.InputSource\nimport java.io.StringReader' "$FLUTTER_GROOVY"
             
-            # Add a helper method at the top of the script (after package declaration)
-            # This creates a newXmlParser() method that uses standard Java DocumentBuilder
-            # We'll insert it after the package declaration
-            awk '/^package / { print; print ""; print "import javax.xml.parsers.DocumentBuilderFactory"; print "import javax.xml.parsers.DocumentBuilder"; print "import org.w3c.dom.Document"; print "import org.w3c.dom.Node"; print "import org.w3c.dom.NodeList"; print "import org.w3c.dom.Element"; print "import org.xml.sax.InputSource"; print "import java.io.StringReader"; print ""; print "def newXmlParser() {"; print "  return [parse: { input ->"; print "    def factory = DocumentBuilderFactory.newInstance()"; print "    def builder = factory.newDocumentBuilder()"; print "    def inputSource = new InputSource(new StringReader(input))"; print "    def doc = builder.parse(inputSource)"; print "    return new XmlSlurperAdapter(doc)"; print "  }]"; print "}"; print ""; next } 1' "$FLUTTER_GROOVY" > "$FLUTTER_GROOVY.tmp" && mv "$FLUTTER_GROOVY.tmp" "$FLUTTER_GROOVY"
+            # 4. Replace XmlParser usage with standard Java DocumentBuilder
+            # Replace 'new XmlParser()' with a custom method call
+            sed -i 's/new XmlParser()/newXmlParser()/g' "$FLUTTER_GROOVY"
+            
+            # Add the newXmlParser helper method before the first class/def
+            # Find the first 'def' or 'class' and insert before it
+            awk '
+            /^def |^class / && !inserted {
+                print ""
+                print "def newXmlParser() {"
+                print "  return [parse: { input ->"
+                print "    def factory = DocumentBuilderFactory.newInstance()"
+                print "    def builder = factory.newDocumentBuilder()"
+                print "    def inputSource = new InputSource(new StringReader(input))"
+                print "    def doc = builder.parse(inputSource)"
+                print "    return new XmlSlurperAdapter(doc)"
+                print "  }]"
+                print "}"
+                print ""
+                inserted = 1
+            }
+            { print }
+            ' "$FLUTTER_GROOVY" > "$FLUTTER_GROOVY.tmp" && mv "$FLUTTER_GROOVY.tmp" "$FLUTTER_GROOVY"
+            
+            # Also add the XmlSlurperAdapter class
+            awk '
+            /^def newXmlParser/ && !inserted2 {
+                print ""
+                print "class XmlSlurperAdapter {"
+                print "  Document doc"
+                print "  XmlSlurperAdapter(Document doc) { this.doc = doc }"
+                print "  def getAt(String name) {"
+                print "    def nodes = doc.getElementsByTagName(name)"
+                print "    if (nodes.getLength() == 0) return null"
+                print "    if (nodes.getLength() == 1) return new XmlSlurperAdapter(nodes.item(0))"
+                print "    def list = []"
+                print "    for (int i = 0; i < nodes.getLength(); i++) {"
+                print "      list << new XmlSlurperAdapter(nodes.item(i))"
+                print "    }"
+                print "    return list"
+                print "  }"
+                print "  String toString() { doc.getTextContent() }"
+                print "}"
+                print ""
+                inserted2 = 1
+            }
+            { print }
+            ' "$FLUTTER_GROOVY" > "$FLUTTER_GROOVY.tmp" && mv "$FLUTTER_GROOVY.tmp" "$FLUTTER_GROOVY"
             
             echo "Patched flutter.groovy - replaced QName and XmlParser with standard Java APIs"
             echo "Checking for remaining QName/XmlParser references:"
