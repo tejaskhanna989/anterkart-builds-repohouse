@@ -28,6 +28,24 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      # Patch Flutter SDK's gradle plugin to fix Groovy QName issue
+      - name: Patch Flutter SDK gradle plugin (fix Groovy QName)
+        run: |
+          # Find the flutter.groovy file in the Flutter SDK
+          FLUTTER_GROOVY=$(find /opt/hostedtoolcache/flutter -name "flutter.groovy" -path "*/flutter_tools/gradle/*" 2>/dev/null | head -1)
+          if [ -n "$FLUTTER_GROOVY" ]; then
+            echo "Found flutter.groovy at: $FLUTTER_GROOVY"
+            # Backup the original file
+            cp "$FLUTTER_GROOVY" "$FLUTTER_GROOVY.backup"
+            # Remove the groovy.xml.QName import and replace with a workaround
+            sed -i 's/import groovy.xml.QName//' "$FLUTTER_GROOVY"
+            # Also remove any usage of QName if present
+            sed -i 's/QName/qname/g' "$FLUTTER_GROOVY"
+            echo "Patched flutter.groovy"
+          else
+            echo "WARNING: flutter.groovy not found!"
+          fi
+
       - name: Create fresh Flutter projects
         run: |
           flutter create --template=app --platforms=android customer_new
