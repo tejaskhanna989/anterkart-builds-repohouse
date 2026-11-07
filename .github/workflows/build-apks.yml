@@ -73,17 +73,30 @@ jobs:
             $rootBuildGradle = "$project\android\build.gradle"
             if (Test-Path $rootBuildGradle) {
               $content = Get-Content $rootBuildGradle -Raw
+              Write-Host "Original root build.gradle content (first 2000 chars):"
+              Write-Host $content.Substring(0, [Math]::Min(2000, $content.Length))
+              
               # Update kotlin_version in ext block - handles both version numbers and '<latest-version>' placeholder
-              $content = $content -replace 'kotlin_version\s*=\s*["'']<latest-version>["'']', 'kotlin_version = "1.9.10"'
-              $content = $content -replace 'kotlin_version\s*=\s*["'']1\.7\.[0-9]+["'']', 'kotlin_version = "1.9.10"'
-              $content = $content -replace 'kotlin_version\s*=\s*["'']1\.8\.[0-9]+["'']', 'kotlin_version = "1.9.10"'
-              $content = $content -replace 'kotlin_version\s*=\s*["'']1\.9\.[0-9]+["'']', 'kotlin_version = "1.9.10"'
+              # Use a more aggressive approach - replace the entire line containing kotlin_version
+              $content = $content -replace '(?m)^(\s*kotlin_version\s*=\s*)["''].*["'']', '${1}"1.9.10"'
+              
               # Also handle the case where it's in buildscript dependencies
               $content = $content -replace 'classpath\s*["'']org\.jetbrains\.kotlin:kotlin-gradle-plugin:1\.7\.[0-9]+["'']', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
               $content = $content -replace 'classpath\s*["'']org\.jetbrains\.kotlin:kotlin-gradle-plugin:1\.8\.[0-9]+["'']', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
               $content = $content -replace 'classpath\s*["'']org\.jetbrains\.kotlin:kotlin-gradle-plugin:1\.9\.[0-9]+["'']', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
+              
               Set-Content -Path $rootBuildGradle -Value $content -Encoding UTF8
               Write-Host "Updated Kotlin version in $rootBuildGradle"
+              
+              # Verify the change
+              $newContent = Get-Content $rootBuildGradle -Raw
+              if ($newContent -match 'kotlin_version\s*=\s*["'']1\.9\.10["'']') {
+                Write-Host "SUCCESS: kotlin_version is now 1.9.10"
+              } else {
+                Write-Host "WARNING: kotlin_version may not have been updated correctly"
+                Write-Host "New content (first 2000 chars):"
+                Write-Host $newContent.Substring(0, [Math]::Min(2000, $newContent.Length))
+              }
             }
 
             # Fix APP build.gradle (app level)
