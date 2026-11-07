@@ -39,12 +39,14 @@ jobs:
             # Backup the original file
             cp "$FLUTTER_GROOVY" "$FLUTTER_GROOVY.backup"
             
-            # Use Python to properly patch the file
-            python3 << 'PYEOF'
+            # Write Python patch script to file
+            cat > /tmp/patch_flutter.py << 'PYEOF'
 import re
 
 with open("$FLUTTER_GROOVY", 'r') as f:
     content = f.read()
+
+print(f"Original file size: {len(content)}")
 
 # 1. Remove the groovy.xml.QName import
 content = re.sub(r'import groovy\.xml\.QName\s*\n', '', content)
@@ -74,7 +76,7 @@ content = re.sub(r'new XmlParser\(\)', 'newXmlParser()', content)
 content = re.sub(r'new groovy\.util\.XmlParser\(\)', 'newXmlParser()', content)
 content = re.sub(r'new groovy\.xml\.XmlParser\(\)', 'newXmlParser()', content)
 
-# 5. Add the newXmlParser helper method and XmlSlurperAdapter class
+# 6. Add the newXmlParser helper method and XmlSlurperAdapter class
 # Find the first 'def ' or 'class ' and insert before it
 helper_code = """
 
@@ -114,7 +116,11 @@ with open("$FLUTTER_GROOVY", 'w') as f:
     f.write(content)
 
 print("Patched flutter.groovy successfully")
+print(f"New file size: {len(content)}")
 PYEOF
+            
+            # Execute the Python script
+            python3 /tmp/patch_flutter.py
             
             echo "Patched flutter.groovy - replaced QName and XmlParser with standard Java APIs"
             echo "Checking for remaining QName/XmlParser references:"
