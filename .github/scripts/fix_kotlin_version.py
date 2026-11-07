@@ -9,7 +9,7 @@ def fix_kotlin_version(project_dir):
     print(f'Project dir absolute: {os.path.abspath(project_dir)}', flush=True)
     print(f'Project dir exists: {os.path.exists(project_dir)}', flush=True)
     
-    # Fix ROOT build.gradle (project level) - add buildscript with kotlin_version and classpath
+    # Fix ROOT build.gradle (project level) - add buildscript with classpath AND root ext.kotlin_version
     root_build_gradle = os.path.join(project_dir, 'android', 'build.gradle')
     print(f'Looking for ROOT: {root_build_gradle}', flush=True)
     print(f'ROOT Exists: {os.path.exists(root_build_gradle)}', flush=True)
@@ -58,6 +58,20 @@ def fix_kotlin_version(project_dir):
 
 '''
             content = buildscript_block + content
+        
+        # Also add ext.kotlin_version at root project level (for Flutter plugin)
+        if 'ext {' not in content or 'kotlin_version' not in content:
+            print('ROOT: Adding ext.kotlin_version at root project level', flush=True)
+            # Add after buildscript block or at the beginning
+            if 'buildscript {' in content:
+                content = re.sub(
+                    r'(buildscript\s*\{[^}]*\})',
+                    r'\1\n\next {\n    kotlin_version = "1.9.10"\n}',
+                    content,
+                    count=1
+                )
+            else:
+                content = 'ext {\n    kotlin_version = "1.9.10"\n}\n\n' + content
         
         print(f'ROOT Content changed: {content != original_content}', flush=True)
         if content != original_content:
