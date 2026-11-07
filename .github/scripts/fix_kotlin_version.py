@@ -36,6 +36,7 @@ def fix_kotlin_version(project_dir):
         else:
             # Add ext block after buildscript or at the beginning
             if 'buildscript {' in content:
+                # Add classpath if not present
                 content = re.sub(
                     r'(buildscript\s*\{[^}]*dependencies\s*\{[^}]*)\}',
                     r'\1\n        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"\n    }',
@@ -103,19 +104,19 @@ def fix_kotlin_version(project_dir):
         
         original_content = content
         
-        # Remove id "kotlin-android" from plugins block and add apply plugin: 'kotlin-android' after plugins block
-        # First, remove id "kotlin-android" from plugins block
+        # Remove id "kotlin-android" from plugins block
+        # This regex matches the line with id "kotlin-android" or id 'kotlin-android'
         content = re.sub(
             r'\n\s*id\s+[\'"]kotlin-android[\'"]\s*',
             '',
             content
         )
         
-        # Add apply plugin: 'kotlin-android' after the plugins block
+        # Add apply plugin: "kotlin-android" after the plugins block
         # Find the end of the plugins block
         content = re.sub(
             r'(plugins\s*\{[^}]*\})',
-            r'\1\n\napply plugin: \'kotlin-android\'',
+            r'\1\n\napply plugin: "kotlin-android"',
             content,
             count=1
         )
@@ -137,10 +138,12 @@ def fix_kotlin_version(project_dir):
         # Verify
         with open(app_build_gradle, 'r') as f:
             new_content = f.read()
-        if 'apply plugin: \'kotlin-android\'' in new_content:
-            print('SUCCESS: apply plugin: kotlin-android added in app build.gradle', flush=True)
+        if 'apply plugin: "kotlin-android"' in new_content:
+            print('SUCCESS: apply plugin: "kotlin-android" added in app build.gradle', flush=True)
         else:
-            print('WARNING: apply plugin: kotlin-android may not have been added correctly', flush=True)
+            print('WARNING: apply plugin: "kotlin-android" may not have been added correctly', flush=True)
+            for m in re.finditer(r'apply plugin', new_content):
+                print(f'Found "apply plugin" at position {m.start()}: ...{new_content[max(0,m.start()-50):m.end()+50]}...', flush=True)
     else:
         print(f'NOT FOUND: {app_build_gradle}', flush=True)
     
