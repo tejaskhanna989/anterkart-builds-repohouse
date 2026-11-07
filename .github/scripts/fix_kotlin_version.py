@@ -21,7 +21,7 @@ def fix_kotlin_version(project_dir):
     print(f'Project dir absolute: {os.path.abspath(project_dir)}', flush=True)
     print(f'Project dir exists: {os.path.exists(project_dir)}', flush=True)
     
-    # Fix ROOT build.gradle (project level) - use standard Flutter structure
+    # Fix ROOT build.gradle (project level) - use standard Flutter structure with hardcoded kotlin version
     root_build_gradle = os.path.join(project_dir, 'android', 'build.gradle')
     print(f'Looking for ROOT: {root_build_gradle}', flush=True)
     print(f'ROOT Exists: {os.path.exists(root_build_gradle)}', flush=True)
@@ -33,7 +33,7 @@ def fix_kotlin_version(project_dir):
         print(f'ROOT Original content length: {len(content)}', flush=True)
         print(f'ROOT Original content: {content}', flush=True)
         
-        # Replace entire content with standard Flutter structure
+        # Replace entire content with standard Flutter structure with HARDCODED kotlin version
         new_content = '''buildscript {
     ext.kotlin_version = '1.9.10'
     repositories {
@@ -42,7 +42,7 @@ def fix_kotlin_version(project_dir):
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:7.4.2'
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"
     }
 }
 
@@ -73,7 +73,7 @@ tasks.register("clean", Delete) {
         
         # Verify
         print(f'ROOT New content: {new_content}', flush=True)
-        print('SUCCESS: Root build.gradle updated to standard Flutter structure with Kotlin 1.9.10', flush=True)
+        print('SUCCESS: Root build.gradle updated to standard Flutter structure with HARDCODED Kotlin 1.9.10', flush=True)
     else:
         print(f'NOT FOUND ROOT: {root_build_gradle}', flush=True)
         android_dir = os.path.join(project_dir, 'android')
