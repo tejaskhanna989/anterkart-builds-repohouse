@@ -1,6 +1,13 @@
 import re
+import sys
 
-flutter_groovy = r'C:\hostedtoolcache\windows\flutter\3.22.0\x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy'
+# Get the flutter.groovy path from command line argument, or use default
+if len(sys.argv) > 1:
+    flutter_groovy = sys.argv[1]
+else:
+    flutter_groovy = r'C:\hostedtoolcache\windows\flutter\stable-3.22.0-x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy'
+
+print(f'Patching: {flutter_groovy}')
 
 with open(flutter_groovy, 'r') as f:
     content = f.read()
@@ -71,7 +78,7 @@ class XmlSlurperAdapter {
 content = re.sub(r'(^def |^class )', helper_code + r'\1', content, count=1, flags=re.MULTILINE)
 
 # Write the patched file
-with open(r'C:\hostedtoolcache\windows\flutter\3.22.0\x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy', 'w') as f:
+with open(flutter_groovy, 'w') as f:
     f.write(content)
 
 print('Patched flutter.groovy successfully')

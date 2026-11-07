@@ -40,7 +40,7 @@ jobs:
           if (Test-Path $flutterGroovy) {
             Write-Host "Found flutter.groovy at: $flutterGroovy"
             Copy-Item "$flutterGroovy" "$flutterGroovy.backup"
-            python3 .github/scripts/patch_flutter_groovy.py
+            python3 .github/scripts/patch_flutter_groovy.py "$flutterGroovy"
             if ($LASTEXITCODE -ne 0) {
               Write-Error "Python patch script failed"
               exit 1
