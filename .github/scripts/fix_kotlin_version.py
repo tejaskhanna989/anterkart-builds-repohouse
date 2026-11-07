@@ -139,6 +139,16 @@ def fix_kotlin_version(project_dir):
             content
         )
         
+        # Add kotlinVersion to flutter block
+        if 'flutter {' in content:
+            content = re.sub(
+                r'(flutter\s*\{[^}]*)',
+                r'\1\n    kotlinVersion = "1.9.10"',
+                content,
+                count=1
+            )
+            print('APP: Added kotlinVersion to flutter block', flush=True)
+        
         if content != original_content:
             with open(app_build_gradle, 'w') as f:
                 f.write(content)
@@ -155,6 +165,10 @@ def fix_kotlin_version(project_dir):
             print('WARNING: apply plugin: "kotlin-android" may not have been added correctly', flush=True)
             for m in re.finditer(r'apply plugin', new_content):
                 print(f'Found "apply plugin" at position {m.start()}: ...{new_content[max(0,m.start()-50):m.end()+50]}...', flush=True)
+        if 'kotlinVersion = "1.9.10"' in new_content:
+            print('SUCCESS: kotlinVersion added to flutter block in app build.gradle', flush=True)
+        else:
+            print('WARNING: kotlinVersion may not have been added to flutter block', flush=True)
     else:
         print(f'NOT FOUND APP: {app_build_gradle}', flush=True)
     
