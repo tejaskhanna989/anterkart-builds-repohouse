@@ -37,47 +37,36 @@ jobs:
             # Backup the original file
             cp "$FLUTTER_GROOVY" "$FLUTTER_GROOVY.backup"
             
-            # Use Python to properly patch the file
-            python3 << 'PYEOF'
-import re
-
-flut_file = "/opt/hostedtoolcache/flutter/stable-3.22.0-x64/flutter/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy"
-
-with open(flut_file, 'r') as f:
-    content = f.read()
-
-print(f"Original file size: {len(content)}")
-
-# 1. Remove the groovy.xml.QName import
-content = re.sub(r'import groovy\.xml\.QName\s*\n', '', content)
-
-# 2. Remove the groovy.xml.XmlParser import
-content = re.sub(r'import groovy\.xml\.XmlParser\s*\n', '', content)
-
-# 3. Replace QName with javax.xml.namespace.QName (standard Java API)
-content = re.sub(r'\bQName\b', 'javax.xml.namespace.QName', content)
-
-# 4. Add necessary imports after package declaration
-imports = """import javax.xml.parsers.DocumentBuilderFactory
-import javax.xml.parsers.DocumentBuilder
-import org.w3c.dom.Document
-import org.w3c.dom.Node
-import org.w3c.dom.NodeList
-import org.w3c.dom.Element
-import org.xml.sax.InputSource
-import java.io.StringReader
-"""
-
-# Add imports after package declaration
-content = re.sub(r'(^package .*\n)', r'\1\n' + imports + '\n', content, count=1)
-
-# 5. Replace XmlParser usage with newXmlParser()
-content = re.sub(r'new XmlParser\(\)', 'newXmlParser()', content)
-content = re.sub(r'new groovy\.util\.XmlParser\(\)', 'newXmlParser()', content)
-content = re.sub(r'new groovy\.xml\.XmlParser\(\)', 'newXmlParser()', content)
-
-# 6. Add the newXmlParser helper method and XmlSlurperAdapter class
-helper_code = """
+            # Use sed to patch the file - simpler approach
+            # 1. Remove the groovy.xml.QName import
+            sed -i '/import groovy\.xml\.QName/d' "$FLUTTER_GROOVY"
+            
+            # 2. Remove the groovy.xml.XmlParser import
+            sed -i '/import groovy\.xml\.XmlParser/d' "$FLUTTER_GROOVY"
+            
+            # 3. Replace QName with javax.xml.namespace.QName
+            sed -i 's/\bQName\b/javax.xml.namespace.QName/g' "$FLUTTER_GROOVY"
+            
+            # 6. Replace XmlParser usage with standard Java DocumentBuilder
+            # Replace 'new XmlParser()' with a custom method call
+            sed -i 's/new XmlParser()/newXmlParser()/g' "$FLUTTER_GROOVY"
+            sed -i 's/new groovy\.util\.XmlParser()/newXmlParser()/g' "$FLUTTER_GROOVY"
+            sed -i 's/new groovy\.xml\.XmlParser()/newXmlParser()/g' "$FLUTTER_GROOVY"
+            
+            # Add necessary imports and helper method using sed
+            # Add imports after package declaration
+            sed -i '/^package /a \
+import javax.xml.parsers.DocumentBuilderFactory\nimport javax.xml.parsers.DocumentBuilder\nimport org.w3c.dom.Document\nimport org.w3c.dom.Node\nimport org.w3c.dom.NodeList\nimport org.w3c.dom.Element\nimport org.xml.sax.InputSource\nimport java.io.StringReader' "$FLUTTER_GROOVY"
+            
+            # Replace XmlParser usage with newXmlParser()
+            sed -i 's/new XmlParser()/newXmlParser()/g' "$FLUTTER_GROOVY"
+            sed -i 's/new groovy\.util\.XmlParser()/newXmlParser()/g' "$FLUTTER_GROOVY"
+            sed -i 's/new groovy\.xml\.XmlParser()/newXmlParser()/g' "$FLUTTER_GROOVY"
+            
+            # Add the newXmlParser helper method and XmlSlurperAdapter class
+            # Find the first 'def ' or 'class ' and insert before it
+            # We'll append at the end of the file for simplicity
+            cat >> "$FLUTTER_GROOVY" << 'EOF'
 
 def newXmlParser() {
   return [parse: { input ->
@@ -104,22 +93,11 @@ class XmlSlurperAdapter {
   }
   String toString() { doc.getTextContent() }
 }
-
-"""
-
-# Find the first 'def ' or 'class ' and insert before it
-content = re.sub(r'(^def |^class )', helper_code + r'\1', content, count=1, flags=re.MULTILINE)
-
-# Write the patched file
-with open("/opt/hostedtoolcache/flutter/stable-3.22.0-x64/flutter/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy", 'w') as f:
-    f.write(content)
-
-print("Patched flutter.groovy successfully")
-PYEOF
+EOF
             
             echo "Patched flutter.groovy - replaced QName and XmlParser with standard Java APIs"
             echo "Checking for remaining QName/XmlParser references:"
-            grep -n "QName\|XmlParser" "/opt/hostedtoolcache/flutter/stable-3.22.0-x64/flutter/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy" || echo "No references found"
+            grep -n "QName\|XmlParser" "$FLUTTER_GROOVY" || echo "No references found"
           else
             echo "WARNING: flutter.groovy not found at expected path!"
             find /opt/hostedtoolcache/flutter -name "flutter.groovy" 2>/dev/null
