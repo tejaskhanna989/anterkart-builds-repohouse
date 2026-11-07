@@ -63,27 +63,90 @@ jobs:
           flutter create --template=app --platforms=android vendor_new
           flutter create --template=app --platforms=android rider_new
 
-      - name: Fix Kotlin version in generated projects
+      - name: Fix Kotlin version in generated projects (inline PowerShell)
         shell: pwsh
         working-directory: ${{ github.workspace }}
         run: |
-          Write-Host "=== Starting Kotlin version fix ==="
+          Write-Host "=== Starting Kotlin version fix (inline PowerShell) ==="
           Write-Host "Working directory: $(Get-Location)"
-          Write-Host "GITHUB_WORKSPACE: $env:GITHUB_WORKSPACE"
           Write-Host "Projects exist:"
           Write-Host "  customer_new: $(Test-Path customer_new)"
           Write-Host "  vendor_new: $(Test-Path vendor_new)"
           Write-Host "  rider_new: $(Test-Path rider_new)"
           
-          Write-Host "Running Python fix script..."
-          python3 .github/scripts/fix_kotlin_version.py
-          
-          $exitCode = $LASTEXITCODE
-          Write-Host "Python script exited with code: $exitCode"
-          if ($exitCode -ne 0) {
-            Write-Error "Python fix script failed with exit code $exitCode"
-            exit $exitCode
+          $projects = @("customer_new", "vendor_new", "rider_new")
+          foreach ($project in $projects) {
+            Write-Host "Processing $project..."
+            
+            # Fix root build.gradle (project level)
+            $rootBuildGradle = "$project\android\build.gradle"
+            if (Test-Path $rootBuildGradle) {
+              Write-Host "  Found: $rootBuildGradle"
+              $content = Get-Content $rootBuildGradle -Raw
+              
+              # Replace kotlin_version line - handles '<latest-version>' and version numbers
+              $originalContent = $content
+              $content = $content -replace '(kotlin_version\s*=\s*)[\'"][^\'"]*[\'"]', '${1}"1.9.10"'
+              
+              # Also handle classpath in buildscript dependencies
+              $content = $content -replace 'classpath\s*[\'"]org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+[\'"]', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
+              
+              if ($content -ne $originalContent) {
+                Set-Content -Path $rootBuildGradle -Value $content -Encoding UTF8
+                Write-Host "  UPDATED: $rootBuildGradle"
+              } else {
+                Write-Host "  NO CHANGE NEEDED: $rootBuildGradle"
+              }
+              
+              # Verify
+              $newContent = Get-Content $rootBuildGradle -Raw
+              if ($newContent -match 'kotlin_version\s*=\s*[\'"]1\.9\.10[\'"]') {
+                Write-Host "  SUCCESS: kotlin_version is now 1.9.10"
+              } else {
+                Write-Host "  WARNING: kotlin_version may not have been updated correctly"
+                Write-Host "  Content preview: $($newContent.Substring(0, [Math]::Min(500, $newContent.Length)))"
+              }
+            } else {
+              Write-Host "  NOT FOUND: $rootBuildGradle"
+            }
+            
+            # Fix app build.gradle
+            $appBuildGradle = "$project\android\app\build.gradle"
+            if (Test-Path $appBuildGradle) {
+              Write-Host "  Found: $appBuildGradle"
+              $content = Get-Content $appBuildGradle -Raw
+              $originalContent = $content
+              $content = $content -replace 'classpath\s*[\'"]org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+[\'"]', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
+              
+              if ($content -ne $originalContent) {
+                Set-Content -Path $appBuildGradle -Value $content -Encoding UTF8
+                Write-Host "  UPDATED: $appBuildGradle"
+              } else {
+                Write-Host "  NO CHANGE NEEDED: $appBuildGradle"
+              }
+            } else {
+              Write-Host "  NOT FOUND: $appBuildGradle"
+            }
+            
+            # Fix settings.gradle
+            $settingsGradle = "$project\android\settings.gradle"
+            if (Test-Path $settingsGradle) {
+              Write-Host "  Found: $settingsGradle"
+              $content = Get-Content $settingsGradle -Raw
+              $originalContent = $content
+              $content = $content -replace 'classpath\s*[\'"]org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+[\'"]', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
+              
+              if ($content -ne $originalContent) {
+                Set-Content -Path $settingsGradle -Value $content -Encoding UTF8
+                Write-Host "  UPDATED: $settingsGradle"
+              } else {
+                Write-Host "  NO CHANGE NEEDED: $settingsGradle"
+              }
+            } else {
+              Write-Host "  NOT FOUND: $settingsGradle"
+            }
           }
+          
           Write-Host "=== Kotlin version fix completed ==="
 
       - name: Copy Dart code, assets, and Android config
