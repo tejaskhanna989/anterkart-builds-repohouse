@@ -56,6 +56,13 @@ jobs:
             Get-ChildItem -Path "C:\hostedtoolcache\windows\flutter" -Filter "flutter.groovy" -Recurse -ErrorAction SilentlyContinue
           }
 
+      - name: Create fresh Flutter projects
+        shell: pwsh
+        run: |
+          flutter create --template=app --platforms=android customer_new
+          flutter create --template=app --platforms=android vendor_new
+          flutter create --template=app --platforms=android rider_new
+
       - name: Fix Kotlin version in generated projects
         shell: pwsh
         run: |
@@ -109,13 +116,6 @@ jobs:
               Write-Host "Updated Kotlin version in $settingsGradleKts"
             }
           }
-
-      - name: Create fresh Flutter projects
-        shell: pwsh
-        run: |
-          flutter create --template=app --platforms=android customer_new
-          flutter create --template=app --platforms=android vendor_new
-          flutter create --template=app --platforms=android rider_new
 
       - name: Copy Dart code, assets, and Android config
         shell: pwsh
