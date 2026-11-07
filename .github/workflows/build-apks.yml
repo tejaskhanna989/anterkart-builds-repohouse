@@ -34,47 +34,33 @@ jobs:
           flutter create --template=app --platforms=android vendor_new
           flutter create --template=app --platforms=android rider_new
 
-      - name: Copy Dart code and assets
+      - name: Copy Dart code, assets, and Android config
         run: |
           # Customer
           cp -r customer/lib customer_new/lib
           cp -r customer/assets customer_new/assets 2>/dev/null || true
           cp customer/pubspec.yaml customer_new/pubspec.yaml
+          cp -r customer/android customer_new/ 2>/dev/null || true
           # Vendor
           cp -r vendor/lib vendor_new/lib
           cp -r vendor/assets vendor_new/assets 2>/dev/null || true
           cp vendor/pubspec.yaml vendor_new/pubspec.yaml
+          cp -r vendor/android vendor_new/ 2>/dev/null || true
           # Rider
           cp -r rider/lib rider_new/lib
           cp -r rider/assets rider_new/assets 2>/dev/null || true
           cp rider/pubspec.yaml rider_new/pubspec.yaml
+          cp -r rider/android rider_new/ 2>/dev/null || true
 
-      - name: Fix Kotlin version
+      - name: Force compileSdk/targetSdk to API 34
         run: |
           for app in customer_new vendor_new rider_new; do
-            # Update Kotlin plugin version in settings.gradle or build.gradle
-            find $app/android -name "build.gradle*" -o -name "settings.gradle*" | while read f; do
-              # For older format (build.gradle with ext.kotlin_version)
-              sed -i 's/ext.kotlin_version = .*/ext.kotlin_version = "1.9.24"/' "$f"
-              
-              # For newer format (plugins block with kotlin android)
-              sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.24"/' "$f"
-              sed -i 's/id("org.jetbrains.kotlin.android") version "[^"]*"/id("org.jetbrains.kotlin.android") version "1.9.24"/' "$f"
-              sed -i 's/id "org.jetbrains.kotlin.android" version '\''[^'\'']*'\''/id "org.jetbrains.kotlin.android" version "1.9.24"/' "$f"
-            done
+            f="$app/android/app/build.gradle.kts"
+            if [ -f "$f" ]; then
+              sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/' "$f"
+              sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/' "$f"
+            fi
           done
-                # Force compileSdk/targetSdk to API 34 (stable on runner)
-                for app in customer_new vendor_new rider_new; do
-                  f="$app/android/app/build.gradle"
-                  if [ -f "$f" ]; then
-                    sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/' "$f"
-                    sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/' "$f"
-                    sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 34/' "$f"
-                    sed -i 's/compileSdkVersion = flutter.compileSdkVersion/compileSdkVersion = 34/' "$f"
-                  fi
-                done
-          echo "---"
-          grep -rn "kotlin" customer_new/android/build.gradle customer_new/android/settings.gradle* 2>/dev/null | head
 
       - name: Get Flutter dependencies
         run: |
