@@ -2,6 +2,18 @@ import re
 import sys
 import os
 
+def find_matching_brace(text, start_pos):
+    """Find the position of the matching closing brace for the opening brace at start_pos."""
+    count = 0
+    for i in range(start_pos, len(text)):
+        if text[i] == '{':
+            count += 1
+        elif text[i] == '}':
+            count -= 1
+            if count == 0:
+                return i
+    return -1
+
 def fix_kotlin_version(project_dir):
     """Fix Kotlin version in a Flutter project's Gradle files."""
     print(f'\n=== Fixing Kotlin version for {project_dir} ===', flush=True)
@@ -60,17 +72,14 @@ def fix_kotlin_version(project_dir):
             content = buildscript_block + content
         
         # Also add ext.kotlin_version at root project level (for Flutter plugin)
-        # Check if there's an ext block OUTSIDE of buildscript (at root level)
-        # Look for ext { after the buildscript block ends
+        # Find the end of the buildscript block (matching brace)
         has_root_ext = False
         if 'buildscript {' in content:
-            # Find the end of buildscript block
-            buildscript_end = content.find('}\n\n', content.find('buildscript {'))
-            if buildscript_end == -1:
-                buildscript_end = content.find('}\n', content.find('buildscript {'))
+            buildscript_start = content.find('buildscript {')
+            buildscript_end = find_matching_brace(content, buildscript_start)
             if buildscript_end != -1:
-                # Check if there's ext { after buildscript
-                after_buildscript = content[buildscript_end:]
+                # Check if there's ext { kotlin_version } after buildscript block
+                after_buildscript = content[buildscript_end + 1:]
                 if 'ext {' in after_buildscript and 'kotlin_version' in after_buildscript:
                     has_root_ext = True
         
@@ -78,12 +87,14 @@ def fix_kotlin_version(project_dir):
             print('ROOT: Adding ext.kotlin_version at root project level', flush=True)
             # Add after buildscript block or at the beginning
             if 'buildscript {' in content:
-                content = re.sub(
-                    r'(buildscript\s*\{[^}]*\})',
-                    r'\1\n\next {\n    kotlin_version = "1.9.10"\n}',
-                    content,
-                    count=1
-                )
+                buildscript_start = content.find('buildscript {')
+                buildscript_end = find_matching_brace(content, buildscript_start)
+                if buildscript_end != -1:
+                    # Insert after the buildscript block
+                    content = content[:buildscript_end + 1] + '\n\next {\n    kotlin_version = "1.9.10"\n}' + content[buildscript_end + 1:]
+                else:
+                    # Fallback: add at the beginning
+                    content = 'ext {\n    kotlin_version = "1.9.10"\n}\n\n' + content
             else:
                 content = 'ext {\n    kotlin_version = "1.9.10"\n}\n\n' + content
         
