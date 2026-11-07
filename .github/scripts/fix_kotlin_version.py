@@ -122,15 +122,23 @@ tasks.register("clean", Delete) {{
             content
         )
         
-        # Try to set kotlinVersion in flutter block (may not work in older Flutter versions)
-        if 'flutter {' in content:
-            content = re.sub(
-                r'(flutter\s*\{[^}]*)',
-                r'\1\n    kotlinVersion = "' + KOTLIN_VERSION + '"',
-                content,
-                count=1
-            )
-            print('APP: Attempted to add kotlinVersion to flutter block', flush=True)
+        # Add buildscript block to app-level build.gradle to force kotlin version
+        if 'buildscript {' not in content:
+            # Add buildscript block at the beginning
+            buildscript_block = f'''buildscript {{
+    ext.kotlin_version = '{KOTLIN_VERSION}'
+    repositories {{
+        google()
+        mavenCentral()
+    }}
+    dependencies {{
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:{KOTLIN_VERSION}"
+    }}
+}}
+
+'''
+            content = buildscript_block + content
+            print('APP: Added buildscript block to force kotlin version', flush=True)
         
         if content != original_content:
             with open(app_build_gradle, 'w') as f:
