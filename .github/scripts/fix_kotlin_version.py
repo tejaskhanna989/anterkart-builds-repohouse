@@ -38,7 +38,7 @@ def fix_kotlin_version(project_dir):
     else:
         print(f'NOT FOUND: {root_build_gradle}', flush=True)
     
-    # Fix APP build.gradle (app level) - this is where ext.kotlin_version is defined
+    # Fix APP build.gradle (app level) - this is where the plugins DSL is used
     app_build_gradle = os.path.join(project_dir, 'android', 'app', 'build.gradle')
     print(f'Looking for: {app_build_gradle}', flush=True)
     print(f'Exists: {os.path.exists(app_build_gradle)}', flush=True)
@@ -51,11 +51,13 @@ def fix_kotlin_version(project_dir):
         print(f'Content length: {len(content)}', flush=True)
         print(f'Content preview (first 5000 chars): {content[:5000]}', flush=True)
         
-        # Replace kotlin_version in ext block - handles both '<latest-version>' and version numbers
         original_content = content
+        
+        # Fix the plugins block - add version to kotlin-android plugin
+        # Match: id "kotlin-android" (without version) and add version
         content = re.sub(
-            r'(?:ext\.)?(kotlin_version\s*=\s*)[\'"][^\'"]*[\'"]',
-            r'\1"1.9.10"',
+            r'(id\s+[\'"]kotlin-android[\'"])\s*(?![\s\S]*version)',
+            r'\1 version "1.9.10"',
             content
         )
         
@@ -76,13 +78,13 @@ def fix_kotlin_version(project_dir):
         # Verify
         with open(app_build_gradle, 'r') as f:
             new_content = f.read()
-        if 'kotlin_version = "1.9.10"' in new_content:
-            print('SUCCESS: kotlin_version is now 1.9.10 in app build.gradle', flush=True)
+        if 'kotlin-android" version "1.9.10"' in new_content or "kotlin-android' version '1.9.10'" in new_content:
+            print('SUCCESS: kotlin-android version is now 1.9.10 in app build.gradle', flush=True)
         else:
-            print('WARNING: kotlin_version may not have been updated correctly in app', flush=True)
-            # Find where kotlin_version is
-            for m in re.finditer(r'kotlin_version', new_content):
-                print(f'Found "kotlin_version" at position {m.start()}: ...{new_content[max(0,m.start()-50):m.end()+50]}...', flush=True)
+            print('WARNING: kotlin-android version may not have been updated correctly in app', flush=True)
+            # Find where kotlin-android is
+            for m in re.finditer(r'kotlin-android', new_content):
+                print(f'Found "kotlin-android" at position {m.start()}: ...{new_content[max(0,m.start()-50):m.end()+50]}...', flush=True)
     else:
         print(f'NOT FOUND: {app_build_gradle}', flush=True)
     
