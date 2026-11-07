@@ -82,7 +82,7 @@ jobs:
           Copy-Item -Path rider\pubspec.yaml -Destination rider_new\pubspec.yaml -Force
           Copy-Item -Path rider\android -Destination rider_new\android -Recurse -Force -ErrorAction SilentlyContinue
 
-      - name: Fix Kotlin version in generated projects (AFTER copying Android config)
+      - name: Fix Kotlin version in generated projects (Python script)
         shell: pwsh
         working-directory: ${{ github.workspace }}
         run: |
