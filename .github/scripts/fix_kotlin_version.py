@@ -21,7 +21,7 @@ def fix_kotlin_version(project_dir):
     print(f'Project dir absolute: {os.path.abspath(project_dir)}', flush=True)
     print(f'Project dir exists: {os.path.exists(project_dir)}', flush=True)
     
-    # Fix ROOT build.gradle (project level) - add buildscript with classpath AND set rootProject.ext.kotlin_version
+    # Fix ROOT build.gradle (project level) - use standard Flutter structure
     root_build_gradle = os.path.join(project_dir, 'android', 'build.gradle')
     print(f'Looking for ROOT: {root_build_gradle}', flush=True)
     print(f'ROOT Exists: {os.path.exists(root_build_gradle)}', flush=True)
@@ -33,68 +33,47 @@ def fix_kotlin_version(project_dir):
         print(f'ROOT Original content length: {len(content)}', flush=True)
         print(f'ROOT Original content: {content}', flush=True)
         
-        original_content = content
-        
-        # Check if buildscript block exists
-        if 'buildscript {' in content:
-            print('ROOT: Found existing buildscript block', flush=True)
-            # Update kotlin_version in ext block within buildscript
-            content = re.sub(
-                r'(buildscript\s*\{[^}]*ext\s*\{[^}]*)',
-                r'\1\n        kotlin_version = "1.9.10"',
-                content,
-                count=1
-            )
-            # Also set rootProject.ext.kotlin_version in buildscript
-            content = re.sub(
-                r'(buildscript\s*\{[^}]*ext\s*\{[^}]*kotlin_version\s*=\s*[\'"][^\'"]*[\'"][^}]*\})',
-                r'\1\n    rootProject.ext.kotlin_version = "1.9.10"',
-                content,
-                count=1
-            )
-            # Update classpath
-            content = re.sub(
-                r'classpath\s*[\'"]org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+[\'"]',
-                'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"',
-                content
-            )
-        else:
-            print('ROOT: No buildscript block, adding one with kotlin_version and classpath', flush=True)
-            # Add buildscript block at the beginning with rootProject.ext.kotlin_version
-            buildscript_block = '''buildscript {
-    ext {
-        kotlin_version = "1.9.10"
-    }
-    rootProject.ext.kotlin_version = "1.9.10"
+        # Replace entire content with standard Flutter structure
+        new_content = '''buildscript {
+    ext.kotlin_version = '1.9.10'
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath "com.android.tools.build:gradle:8.1.0"
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"
+        classpath 'com.android.tools.build:gradle:7.4.2'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
 
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.buildDir = "../build"
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+subprojects {
+    project.evaluationDependsOn(":app")
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
 '''
-            content = buildscript_block + content
         
-        print(f'ROOT Content changed: {content != original_content}', flush=True)
-        if content != original_content:
-            with open(root_build_gradle, 'w') as f:
-                f.write(content)
-            print(f'UPDATED ROOT: {root_build_gradle}', flush=True)
-        else:
-            print(f'NO CHANGE NEEDED ROOT: {root_build_gradle}', flush=True)
+        print(f'ROOT Content changed: True', flush=True)
+        with open(root_build_gradle, 'w') as f:
+            f.write(new_content)
+        print(f'UPDATED ROOT: {root_build_gradle}', flush=True)
         
         # Verify
-        with open(root_build_gradle, 'r') as f:
-            new_content = f.read()
         print(f'ROOT New content: {new_content}', flush=True)
-        if 'kotlin_version = "1.9.10"' in new_content and 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"' in new_content and 'rootProject.ext.kotlin_version = "1.9.10"' in new_content:
-            print('SUCCESS: kotlin_version, classpath, and rootProject.ext.kotlin_version are now 1.9.10 in root build.gradle', flush=True)
-        else:
-            print('WARNING: kotlin_version, classpath, or rootProject.ext.kotlin_version may not have been updated correctly in root', flush=True)
+        print('SUCCESS: Root build.gradle updated to standard Flutter structure with Kotlin 1.9.10', flush=True)
     else:
         print(f'NOT FOUND ROOT: {root_build_gradle}', flush=True)
         android_dir = os.path.join(project_dir, 'android')
@@ -139,16 +118,6 @@ def fix_kotlin_version(project_dir):
             content
         )
         
-        # Add kotlinVersion to flutter block
-        if 'flutter {' in content:
-            content = re.sub(
-                r'(flutter\s*\{[^}]*)',
-                r'\1\n    kotlinVersion = "1.9.10"',
-                content,
-                count=1
-            )
-            print('APP: Added kotlinVersion to flutter block', flush=True)
-        
         if content != original_content:
             with open(app_build_gradle, 'w') as f:
                 f.write(content)
@@ -165,10 +134,6 @@ def fix_kotlin_version(project_dir):
             print('WARNING: apply plugin: "kotlin-android" may not have been added correctly', flush=True)
             for m in re.finditer(r'apply plugin', new_content):
                 print(f'Found "apply plugin" at position {m.start()}: ...{new_content[max(0,m.start()-50):m.end()+50]}...', flush=True)
-        if 'kotlinVersion = "1.9.10"' in new_content:
-            print('SUCCESS: kotlinVersion added to flutter block in app build.gradle', flush=True)
-        else:
-            print('WARNING: kotlinVersion may not have been added to flutter block', flush=True)
     else:
         print(f'NOT FOUND APP: {app_build_gradle}', flush=True)
     
