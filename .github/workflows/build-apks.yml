@@ -28,6 +28,24 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      # Fix Groovy QName issue by adding groovy-xml to Gradle
+      - name: Fix Groovy QName issue
+        run: |
+          # Create Gradle init script to add groovy-xml dependency
+          cat > /tmp/groovy-fix.gradle << 'EOF'
+          allprojects {
+            buildscript {
+              dependencies {
+                classpath 'org.codehaus.groovy:groovy-xml:3.0.13'
+              }
+            }
+          }
+          EOF
+          # Apply to Flutter SDK's gradle
+          export GRADLE_USER_HOME=/tmp/gradle
+          mkdir -p $GRADLE_USER_HOME/init.d
+          cp /tmp/groovy-fix.gradle $GRADLE_USER_HOME/init.d/groovy-fix.gradle
+
       - name: Create fresh Flutter projects
         run: |
           flutter create --template=app --platforms=android customer_new
