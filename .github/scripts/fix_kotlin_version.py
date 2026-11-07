@@ -9,7 +9,7 @@ def fix_kotlin_version(project_dir):
     print(f'Project dir absolute: {os.path.abspath(project_dir)}', flush=True)
     print(f'Project dir exists: {os.path.exists(project_dir)}', flush=True)
     
-    # Fix ROOT build.gradle (project level) - for classpath
+    # Fix ROOT build.gradle (project level) - for classpath AND kotlin_version
     root_build_gradle = os.path.join(project_dir, 'android', 'build.gradle')
     print(f'Looking for: {root_build_gradle}', flush=True)
     print(f'Exists: {os.path.exists(root_build_gradle)}', flush=True)
@@ -20,35 +20,7 @@ def fix_kotlin_version(project_dir):
         
         print(f'Original content (first 1000 chars): {content[:1000]}', flush=True)
         
-        # Handle classpath in buildscript dependencies
-        original_content = content
-        content = re.sub(
-            r'classpath\s*[\'"]org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+[\'"]',
-            'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"',
-            content
-        )
-        
-        if content != original_content:
-            with open(root_build_gradle, 'w') as f:
-                f.write(content)
-            print(f'UPDATED: {root_build_gradle}', flush=True)
-        else:
-            print(f'NO CHANGE NEEDED: {root_build_gradle}', flush=True)
-    else:
-        print(f'NOT FOUND: {root_build_gradle}', flush=True)
-    
-    # Fix APP build.gradle (app level) - this is where ext.kotlin_version is defined
-    app_build_gradle = os.path.join(project_dir, 'android', 'app', 'build.gradle')
-    print(f'Looking for: {app_build_gradle}', flush=True)
-    print(f'Exists: {os.path.exists(app_build_gradle)}', flush=True)
-    
-    if os.path.exists(app_build_gradle):
-        with open(app_build_gradle, 'r') as f:
-            content = f.read()
-        
-        print(f'Processing: {app_build_gradle}', flush=True)
-        
-        # Replace kotlin_version in ext block - handles both '<latest-version>' and version numbers
+        # Handle kotlin_version in ext block - this is where 'ext.kotlin_version = <latest-version>' is defined
         original_content = content
         content = re.sub(
             r'(kotlin_version\s*=\s*)[\'"][^\'"]*[\'"]',
@@ -64,28 +36,50 @@ def fix_kotlin_version(project_dir):
         )
         
         if content != original_content:
+            with open(root_build_gradle, 'w') as f:
+                f.write(content)
+            print(f'UPDATED: {root_build_gradle}', flush=True)
+        else:
+            print(f'NO CHANGE NEEDED: {root_build_gradle}', flush=True)
+        
+        # Verify
+        with open(root_build_gradle, 'r') as f:
+            new_content = f.read()
+        if 'kotlin_version = "1.9.10"' in new_content:
+            print('SUCCESS: kotlin_version is now 1.9.10 in root build.gradle', flush=True)
+        else:
+            print('WARNING: kotlin_version may not have been updated correctly in root', flush=True)
+            print(f'New content (first 1000 chars): {new_content[:1000]}', flush=True)
+    else:
+        print(f'NOT FOUND: {root_build_gradle}', flush=True)
+    
+    # Fix APP build.gradle (app level) - for classpath
+    app_build_gradle = os.path.join(project_dir, 'android', 'app', 'build.gradle')
+    print(f'Looking for: {app_build_gradle}', flush=True)
+    print(f'Exists: {os.path.exists(app_build_gradle)}', flush=True)
+    
+    if os.path.exists(app_build_gradle):
+        with open(app_build_gradle, 'r') as f:
+            content = f.read()
+        
+        print(f'Processing: {app_build_gradle}', flush=True)
+        
+        # Handle classpath in buildscript dependencies
+        original_content = content
+        content = re.sub(
+            r'classpath\s*[\'"]org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+[\'"]',
+            'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"',
+            content
+        )
+        
+        if content != original_content:
             with open(app_build_gradle, 'w') as f:
                 f.write(content)
             print(f'UPDATED: {app_build_gradle}', flush=True)
         else:
             print(f'NO CHANGE NEEDED: {app_build_gradle}', flush=True)
-        
-        # Verify
-        with open(app_build_gradle, 'r') as f:
-            new_content = f.read()
-        if 'kotlin_version = "1.9.10"' in new_content:
-            print('SUCCESS: kotlin_version is now 1.9.10', flush=True)
-        else:
-            print('WARNING: kotlin_version may not have been updated correctly', flush=True)
-            print(f'New content (first 1000 chars): {new_content[:1000]}', flush=True)
     else:
         print(f'NOT FOUND: {app_build_gradle}', flush=True)
-        # List what's in the project dir
-        android_dir = os.path.join(project_dir, 'android')
-        if os.path.exists(android_dir):
-            print(f'Contents of {android_dir}: {os.listdir(android_dir)}', flush=True)
-        else:
-            print(f'android dir does not exist: {android_dir}', flush=True)
     
     # Fix settings.gradle
     settings_gradle = os.path.join(project_dir, 'android', 'settings.gradle')
