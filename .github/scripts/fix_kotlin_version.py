@@ -18,10 +18,21 @@ def fix_kotlin_version(project_dir):
         with open(root_build_gradle, 'r') as f:
             content = f.read()
         
-        print(f'Original content (first 2000 chars): {content[:2000]}', flush=True)
+        print(f'Original content length: {len(content)}', flush=True)
+        print(f'Original content (first 3000 chars): {content[:3000]}', flush=True)
         
         # Handle kotlin_version in ext block - matches both 'ext.kotlin_version' and 'kotlin_version'
         original_content = content
+        # Search for the pattern in the entire content
+        match = re.search(r'(?:ext\.)?(kotlin_version\s*=\s*)[\'"][^\'"]*[\'"]', content)
+        if match:
+            print(f'Found kotlin_version match: {match.group()}', flush=True)
+        else:
+            print('No kotlin_version match found in root build.gradle', flush=True)
+            # Let's search for any kotlin_version
+            for m in re.finditer(r'kotlin_version', content):
+                print(f'Found "kotlin_version" at position {m.start()}: ...{content[max(0,m.start()-50):m.end()+50]}...', flush=True)
+        
         content = re.sub(
             r'(?:ext\.)?(kotlin_version\s*=\s*)[\'"][^\'"]*[\'"]',
             r'\1"1.9.10"',
@@ -50,7 +61,9 @@ def fix_kotlin_version(project_dir):
             print('SUCCESS: kotlin_version is now 1.9.10 in root build.gradle', flush=True)
         else:
             print('WARNING: kotlin_version may not have been updated correctly in root', flush=True)
-            print(f'New content (first 2000 chars): {new_content[:2000]}', flush=True)
+            # Find where kotlin_version is
+            for m in re.finditer(r'kotlin_version', new_content):
+                print(f'Found "kotlin_version" at position {m.start()}: ...{new_content[max(0,m.start()-50):m.end()+50]}...', flush=True)
     else:
         print(f'NOT FOUND: {root_build_gradle}', flush=True)
         # List what's in the project dir
