@@ -21,9 +21,9 @@ def fix_kotlin_version(project_dir):
     print(f'Project dir absolute: {os.path.abspath(project_dir)}', flush=True)
     print(f'Project dir exists: {os.path.exists(project_dir)}', flush=True)
     
-    # Use Kotlin 1.9.10 with AGP 8.1.0 for better compatibility
-    KOTLIN_VERSION = '1.9.10'
-    AGP_VERSION = '8.1.0'
+    # Use Kotlin 1.7.10 to match the version the Flutter plugin applies internally
+    KOTLIN_VERSION = '1.7.10'
+    AGP_VERSION = '7.4.2'
     
     # Fix ROOT build.gradle (project level) - use standard Flutter structure
     root_build_gradle = os.path.join(project_dir, 'android', 'build.gradle')
@@ -86,7 +86,7 @@ tasks.register("clean", Delete) {{
         else:
             print(f'android dir does not exist: {android_dir}', flush=True)
     
-    # Fix APP build.gradle (app level) - use plugins DSL with explicit kotlin version
+    # Fix APP build.gradle (app level) - keep the kotlin-android plugin ID but let Flutter plugin manage version
     app_build_gradle = os.path.join(project_dir, 'android', 'app', 'build.gradle')
     print(f'Looking for APP: {app_build_gradle}', flush=True)
     print(f'APP Exists: {os.path.exists(app_build_gradle)}', flush=True)
@@ -100,11 +100,11 @@ tasks.register("clean", Delete) {{
         
         original_content = content
         
-        # Replace the plugins block to use explicit kotlin version
-        # Match: id "kotlin-android" or id 'kotlin-android' and replace with versioned version
+        # Keep the kotlin-android plugin ID but don't specify version (let Flutter plugin manage it)
+        # Just ensure we don't have the versioned version
         content = re.sub(
-            r'(id\s+[\'"]kotlin-android[\'"])',
-            f'id "org.jetbrains.kotlin.android" version "{KOTLIN_VERSION}"',
+            r'id\s+[\'"]org\.jetbrains\.kotlin\.android[\'"]\s+version\s+[\'"][^\'"]+[\'"]',
+            'id "kotlin-android"',
             content
         )
         
@@ -125,10 +125,10 @@ tasks.register("clean", Delete) {{
         # Verify
         with open(app_build_gradle, 'r') as f:
             new_content = f.read()
-        if f'version "{KOTLIN_VERSION}"' in new_content:
-            print(f'SUCCESS: kotlin-android plugin version {KOTLIN_VERSION} set in app build.gradle', flush=True)
+        if 'id "kotlin-android"' in new_content and 'version' not in new_content.split('id "kotlin-android"')[1][:50]:
+            print('SUCCESS: kotlin-android plugin ID kept without version', flush=True)
         else:
-            print('WARNING: kotlin-android plugin version may not have been set correctly', flush=True)
+            print('WARNING: kotlin-android plugin may not be correctly configured', flush=True)
             print(f'APP New content preview: {new_content[:1000]}', flush=True)
     else:
         print(f'NOT FOUND APP: {app_build_gradle}', flush=True)
