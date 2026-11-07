@@ -28,33 +28,9 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Create fresh Flutter projects
-        run: |
-          flutter create --template=app --platforms=android customer_new
-          flutter create --template=app --platforms=android vendor_new
-          flutter create --template=app --platforms=android rider_new
-
-      - name: Copy Dart code, assets, and Android config
-        run: |
-          # Customer
-          cp -r customer/lib customer_new/lib
-          cp -r customer/assets customer_new/assets 2>/dev/null || true
-          cp customer/pubspec.yaml customer_new/pubspec.yaml
-          cp -r customer/android customer_new/ 2>/dev/null || true
-          # Vendor
-          cp -r vendor/lib vendor_new/lib
-          cp -r vendor/assets vendor_new/assets 2>/dev/null || true
-          cp vendor/pubspec.yaml vendor_new/pubspec.yaml
-          cp -r vendor/android vendor_new/ 2>/dev/null || true
-          # Rider
-          cp -r rider/lib rider_new/lib
-          cp -r rider/assets rider_new/assets 2>/dev/null || true
-          cp rider/pubspec.yaml rider_new/pubspec.yaml
-          cp -r rider/android rider_new/ 2>/dev/null || true
-
       - name: Force compileSdk/targetSdk to API 34
         run: |
-          for app in customer_new vendor_new rider_new; do
+          for app in customer vendor rider; do
             f="$app/android/app/build.gradle.kts"
             if [ -f "$f" ]; then
               sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/' "$f"
@@ -64,39 +40,39 @@ jobs:
 
       - name: Get Flutter dependencies
         run: |
-          cd customer_new && flutter pub get
-          cd ../vendor_new && flutter pub get
-          cd ../rider_new && flutter pub get
+          cd customer && flutter pub get
+          cd ../vendor && flutter pub get
+          cd ../rider && flutter pub get
 
       - name: Build Customer APK
-        working-directory: customer_new
+        working-directory: customer
         run: flutter build apk --release --split-per-abi
 
       - name: Build Vendor APK
-        working-directory: vendor_new
+        working-directory: vendor
         run: flutter build apk --release --split-per-abi
 
       - name: Build Rider APK
-        working-directory: rider_new
+        working-directory: rider
         run: flutter build apk --release --split-per-abi
 
       - name: Upload Customer APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: customer-apk
-          path: customer_new/build/app/outputs/flutter-apk/
+          path: customer/build/app/outputs/flutter-apk/
           retention-days: 7
 
       - name: Upload Vendor APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: vendor-apk
-          path: vendor_new/build/app/outputs/flutter-apk/
+          path: vendor/build/app/outputs/flutter-apk/
           retention-days: 7
 
       - name: Upload Rider APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: rider-apk
-          path: rider_new/build/app/outputs/flutter-apk/
+          path: rider/build/app/outputs/flutter-apk/
           retention-days: 7
