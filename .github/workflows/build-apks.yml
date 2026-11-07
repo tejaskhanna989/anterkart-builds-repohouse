@@ -1,134 +1,158 @@
 name: Build APKs
-'on':
+
+on:
   push:
-    branches:
-    - main
+    branches: [ main ]
   pull_request:
-    branches:
-    - main
-  workflow_dispatch: {}
+    branches: [ main ]
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: windows-latest
     timeout-minutes: 120
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-    - name: Set up Flutter
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: 3.22.0
-        channel: stable
-    - name: Set up Java 17
-      uses: actions/setup-java@v4
-      with:
-        distribution: zulu
-        java-version: '17'
-    - name: Install Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    - name: Patch Flutter SDK gradle plugin (fix Groovy QName/XmlParser)
-      shell: pwsh
-      run: "$flutterGroovy = \"C:\\hostedtoolcache\\windows\\flutter\\3.22.0\\x64\\flutter\\packages\\flutter_tools\\gradle\\src\\main\\groovy\\flutter.groovy\"\nif (Test-Path $flutterGroovy) {\n  Write-Host\
-        \ \"Found flutter.groovy at: $flutterGroovy\"\n  Copy-Item \"$flutterGroovy\" \"$flutterGroovy.backup\"\n  \n  $pythonScript = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(\"\
-        aW1wb3J0IHJlCgpmbHV0dGVyX2dyb29neSA9IHInQzpcXGhvc3RlZHRvb2xjYWNoZVx3aW5kb3dzXGZsdXR0ZXJcMzIyLjBceDY0XGZsdXR0ZXJcZGFja2FnZXNcZmx1dHRlcl90b29sc1xncmFkbGVcc3JjXG1haW5cZ3JvdXZ5XGZsdXR0ZXIuZ3Jvb3Z5JwoKd2l0aCBvcGVuKGZsdXR0ZXJfZ3Jvb3Z5LCAncicpIGFzIGY6CiAgICBjb250ZW50ID0gZi5yZWFkKCkKCnByaW50KGYnT3JpZ2luYWwgZmlsZSBzaXplOiB7bGVuKGNvbnRlbnR9fScpCgojIDEuIFJlbW92ZSB0aGUgZ3Jvb3kueG1sLlFOYW1lIGltcG9ydAptY29udGVudCA9IHJlLnN1YihyJ2ltcG9ydCBncm9vdnkueG1sLlFOYW1lXHNcKipcXG4nLCAnJywgY29udGVudCkKCiMgMi4gUmVtb3ZlIHRoZSBncm9vdnkueG1sLlhNTFBhcnNlciBpbXBvcnQKY29udGVudCA9IHJlLnN1YihyJ2ltcG9ydCBncm9vdnkueG1sLlhNTFBhcnNlclxzXipcXG4nLCAnJywgY29udGVudCkKCiMgMy4gUmVwbGFjZSBRTmFtZSB3aXRoIGphdmF4Lm1sLm5hbWVzcGFjZS5RTmFtZSAoc3RhbmRhcmQgSmF2YSBBUEkpCmNvbnRlbnQgPSByZS5zdWIocidlJ3FiTmFtZVxiJywgJ2phdmF4Lm1sLm5hbWVzcGFjZS5RTmFtZScsIGNvbnRlbnQpCgojIDQuIEFkZCBuZWNlc3NhcnkgaW1wb3J0cyBhZnRlciBwYWNrYWdlIGRlY2xhcmF0aW9uCmltcG9ydHMgPScnJ2ltcG9ydCBqYXZheC54bWwucGFyc2Vycy5Eb2N1bWVudEJ1aWxkZXJGYWN0b3J5CmltcG9ydCBqYXZheC54bWwucGFyc2Vycy5Eb2N1bWVudEJ1aWxkZXIKaW1wb3J0IG9yZy53M2MuZG9tLkRvY3VtZW50CmltcG9ydCBvcmcudzNjLmRvbS5Ob2RlCmltcG9ydCBvcmcudzNjLmRvbS5Ob2RlTGlzdAotaW1wb3J0IG9yZy53M2MuZG9tLkVsZW1lbnQKaW1wb3J0IG9yZy53M2MuZG9tLk5vZGVM\
-        \ aXN0CmltcG9ydCBvcmcudzNjLmRvbS5FbGVtZW50CmltcG9ydCBvcmcudzNjLmRvbS5Ob2RlTGlzdAotaW1wb3J0IG9yZy53M2MuZG9tLkVsZW1lbnQKaW1wb3J0IG9yZy53M2MuZG9tLk5vZGVM aXN0CmltcG9ydCBvcmcudzNjLmRvbS5FbGVtZW50CmltcG9ydCBvcmcudzNjLmRvbS5FbGVtZW50CmltcG9ydCBvcmcudzNjLmRvbS5FbGVtZW50CmltcG9ydCBvcmcudzNjLmRvbS5FbGVtZW50CmltcG9ydCBvcmcudzNjLmRvbS5FbGVtZW50CmltcG9ydCBvcmcudzNjLmRvbS5FbGVtZW50CmltcG9ydCBvcmcudzNjLmRvbS5FbGV0ZW50CmltcG9ydCBvcmcudzNjLmRvbS5FbGV0ZW50CmltcG9ydCBvcmcudzNjLmRvbS5FbGV0ZW50CmltcG9ydCBvcmcudzNjLmRvbS5FbGV0ZW50CmltcG9ydCBvcmcudzNjLmRvbS5FbGV0ZW50CmltcG9ydCBvcmcudzNjLmRvbS5FbGV0ZW50CmltcG9ydCBvcmcudzNjLmR2bGluZXIgY2xhc3MKCiMgNS4gUmVwbGFjZSBYbWxQYXJzZXIgdXNhZ2Ugd2l0aCBuZXdYbWxQYXJzZXIoKQpjb250ZW50ID0gcmUuc3ViKHInKF5wYWNrYWdlIC4qXG4pJywgclwnMVxuJyArIGltcG9ydHMgKyAnXG4nLCBjb250ZW50LCBjb3VudD0xKQoKIyA1LiBSZXBsYWNlIFhtbFBhcnNlciB1c2FnZSB3aXRoIG5ld01sUGFyc2VyKCkKY29udGVudCA9IHJlLnN1YihyJ25ldyBYbWxQYXJzZXIoXCcpJywgJ25ld1htbFBhcnNlcigpJywgY29udGVudCkKY29udGVudCA9IHJlLnN1YihyJ25ldyBncm9vdnkueXRpbC5VdGlsLlRyYW5zRm9ybWF0ZXIoXCcpJywgJ25ld1htbFBhcnNlcigpJywgY29udGVudCkKY29udGVudCA9IHJlLnN1YihyJ25ldyBncm9vdnkueG1sLlhtbFBhcnNlclwoXCcpJywgJ25ld1htbFBhcnNlcigpJywgY29udGVudCkKY29udGVudCA9IHJlLnN1YihyJ25ldyBncm9vdnkueG1sLlhtbFBhcnNlclwoXCcpJywgJ25ld1htbFBhcnNlcigpJywgY29udGVudCkKCiMgNS4gQWRkIHRoZSBuZXdYbWxQYXJzZXIgSGVscGVyIG1ldGhvZCBhbmQgWG1sU2x1cnBlckFkYXB0ZXIgY2xhc3MKCiMgRmluZCB0aGUgZmlyc3QgJ2RlZiAnIG9yICdjbGFzcyAnIGFuZCBpbnNlcnQgYmVmb3JlIGl0CmhlbHBlcl9jb2RlID0gIiIiCgpkZWYgbmV3WG1sUGFyc2VyKCkgewogICByZXR1cm4gW3BhcnNlOiB7IGlucHV0IC0+CgogICAgZGVmIGZhY3RvcnkgPSBEb2N1bWVudEJ1aWxkZXJGYWN0b3J5Lm5ld0luc3RhbmNlKCkKICAgIGRlZiBidWlsZGVyID0gZmFjdG9yeS5uZXdEb2N1bWVudEJ1aWxkZXIoKQogICAgZGVmIGlucHV0U291cmNlID0gbmV3IElucHV0U3RyZWFkZXIobnVsdXApCiAgICBkZWYgZG9jID0gYnVpbGRlci5wYXJzZShpbnB1dFNvdXJjZSkKICAgIHJldHVybiBuZXcgWG1sU2x1cnBlckFkYXB0ZXIgKGRvYykKICB9fQoKY2xhc3MgWG1sU2x1cnBlckFkYXB0ZXIgewogIERvY3VtZW50IGRvYwpYW1sU2x1cnBlckFkYXB0ZXIoRG9jdW1lbnQgZG9jKSB7IHRoaXMuZG9jID0gZG9jIH0KICBkZWYgZ2V0QXQoU3RyaW5nIG5hbWUpIHsKICAgIGRlZiBub2RlcyA9IGRvYy5nZXRFbGVtZW50c0J5VGFnTmFtZShuYW1lKQogICAgaWYgKG5vZGVzLmdldExlbmd0aCgpID09IDApIHJldHVybiBudWxsCiAgICBpZiAobm9kZXMuZ2V0TGVuZ3RoKCkgPT0gMSkgcmV0dXJuIG5ldyBYbWxTbHVycGVyQWRhcHRlcihub2Rlcy5pdGVtKDApKQogICAgZGVmIGxpc3QgPSBbXQogICAgZm9yIChpbnQgaSA9IDA7IGkgPCBub2Rlcy5nZXRMZW5ndGgoKSkgewoJICAgICAgbGlzdCA8PCA8PSBuZXcgWG1sU2x1cnBlckFkYXB0ZXIobm9kZXMuaXRlbShpKSkKICAgIHJldHVybiBsaXN0CiAgfQogU3RyaW5nIHRvU3RyaW5nKCkgeyBkb2MuaW5uZXJ0ZXh0KCl9CiIiIiI=\n\
-        \"@\n            Set-Content -Path \"C:\\patch_flutter.py\" -Value $patchScript -Encoding UTF8\n            python3 \"C:\\patch_flutter.py\" 2>&1\n            if ($LASTEXITCODE -ne 0) {\n  Write-Error\
-        \ \"Python patch script failed\"\n  exit 1\n            }\n            Write-Host \"Patched flutter.groovy successfully\"\n            Write-Host \"Checking for remaining QName/XmlParser references:\"\
-        \n            Select-String -Pattern \"QName|XmlParser\" -Path \"C:\\hostedtoolcache\\windows\\flutter\\3.22.0\\x64\\flutter\\packages\\flutter_tools\\gradle\\src\\main\\groovy\\flutter.groovy\"\
-        \ | ForEach-Object { Write-Host \"$($_.LineNumber): $($_.Line)\" } | Out-Host\n            if (-not (Select-String -Pattern \"QName|XmlParser\" -Path \"C:\\hostedtoolcache\\windows\\flutter\\3.22.0\\\
-        x64\\flutter\\packages\\flutter_tools\\gradle\\src\\main\\groovy\\flutter.groovy\")) {\n              Write-Host \"No references found\"\n            }\n          } else {\n            Write-Host\
-        \ \"WARNING: flutter.groovy not found at expected path!\"\n            Get-ChildItem -Path \"C:\\hostedtoolcache\\windows\\flutter\" -Filter \"flutter.groovy\" -Recurse -ErrorAction SilentlyContinue\n\
-        \          }"
-    - name: Fix Kotlin version in generated projects
-      shell: pwsh
-      run: "# Update Kotlin version to 1.9.10 in generated projects\n$projects = @(\"customer_new\", \"vendor_new\", \"rider_new\")\nforeach ($project in $projects) {\n  $buildGradle = \"$project\\android\\\
-        app\\build.gradle.kts\"\n  if (Test-Path $buildGradle) {\n    $content = Get-Content $buildGradle -Raw\n    # Update Kotlin version to 1.9.10\n    $content = $content -replace 'version \"1\\.7\\\
-        .[0-9]+\"', 'version \"1.9.10\"'\n    $content = $content -replace 'version \"1\\.8\\.[0-9]+\"', 'version \"1.9.10\"'\n    $content = $content -replace 'version \"1\\.9\\.[0-9]+\"', 'version \"\
-        1.9.10\"'\n    # Also update the Kotlin plugin version in the plugins block\n    $content = $content -replace 'id\\(\"org\\.jetbrains\\.kotlin\\.android\"\\) version \"[^\"]*\"', 'id(\"org.jetbrains.kotlin.android\"\
-        ) version \"1.9.10\"'\n    Set-Content -Path $buildGradle -Value $content -Encoding UTF8\n    Write-Host \"Updated Kotlin version in $buildGradle\"\n  }\n  \n  # Also update settings.gradle.kts\
-        \ if needed\n  $settingsGradle = \"$project\\android\\settings.gradle.kts\"\n  if (Test-Path $settingsGradle) {\n    $content = Get-Content $settingsGradle -Raw\n    $content = $content -replace\
-        \ 'id\\(\"org\\.jetbrains\\.kotlin\\.android\"\\) version \"[^\"]*\"', 'id(\"org.jetbrains.kotlin.android\") version \"1.9.10\"'\n    Set-Content -Path $settingsGradle -Value $content -Encoding\
-        \ UTF8\n    Write-Host \"Updated Kotlin version in $settingsGradle\"\n  }\n}"
-    - name: Create fresh Flutter projects
-      shell: pwsh
-      run: 'flutter create --template=app --platforms=android customer_new
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-        flutter create --template=app --platforms=android vendor_new
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
 
-        flutter create --template=app --platforms=android rider_new'
-    - name: Copy Dart code, assets, and Android config
-      shell: pwsh
-      run: '# Customer
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
 
-        Copy-Item -Path customer\lib -Destination customer_new\lib -Recurse -Force
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-        Copy-Item -Path customer\assets -Destination customer_new\assets -Recurse -Force -ErrorAction SilentlyContinue
+      - name: Patch Flutter SDK gradle plugin (fix Groovy QName/XmlParser)
+        shell: pwsh
+        run: |
+          $flutterGroovy = "C:\hostedtoolcache\windows\flutter\3.22.0\x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy"
+          if (Test-Path $flutterGroovy) {
+            Write-Host "Found flutter.groovy at: $flutterGroovy"
+            Copy-Item "$flutterGroovy" "$flutterGroovy.backup"
+            python3 .github/scripts/patch_flutter_groovy.py
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "Python patch script failed"
+              exit 1
+            }
+            Write-Host "Patched flutter.groovy successfully"
+            Write-Host "Checking for remaining QName/XmlParser references:"
+            Select-String -Pattern "QName|XmlParser" -Path "C:\hostedtoolcache\windows\flutter\3.22.0\x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy" | ForEach-Object { Write-Host "$($_.LineNumber): $($_.Line)" } | Out-Host
+            if (-not (Select-String -Pattern "QName|XmlParser" -Path "C:\hostedtoolcache\windows\flutter\3.22.0\x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy")) {
+              Write-Host "No references found"
+            }
+          } else {
+            Write-Host "WARNING: flutter.groovy not found at expected path!"
+            Get-ChildItem -Path "C:\hostedtoolcache\windows\flutter" -Filter "flutter.groovy" -Recurse -ErrorAction SilentlyContinue
+          }
 
-        Copy-Item -Path customer\pubspec.yaml -Destination customer_new\pubspec.yaml -Force
+      - name: Fix Kotlin version in generated projects
+        shell: pwsh
+        run: |
+          # Update Kotlin version to 1.9.10 in generated projects
+          $projects = @("customer_new", "vendor_new", "rider_new")
+          foreach ($project in $projects) {
+            $buildGradle = "$project\android\app\build.gradle.kts"
+            if (Test-Path $buildGradle) {
+              $content = Get-Content $buildGradle -Raw
+              # Update Kotlin version to 1.9.10
+              $content = $content -replace 'version "1\.7\.[0-9]+"', 'version "1.9.10"'
+              $content = $content -replace 'version "1\.8\.[0-9]+"', 'version "1.9.10"'
+              $content = $content -replace 'version "1\.9\.[0-9]+"', 'version "1.9.10"'
+              # Also update the Kotlin plugin version in the plugins block
+              $content = $content -replace 'id\("org\.jetbrains\.kotlin\.android"\) version "[^"]*"', 'id("org.jetbrains.kotlin.android") version "1.9.10"'
+              Set-Content -Path $buildGradle -Value $content -Encoding UTF8
+              Write-Host "Updated Kotlin version in $buildGradle"
+            }
 
-        Copy-Item -Path customer\android -Destination customer_new\android -Recurse -Force -ErrorAction SilentlyContinue
+            # Also update settings.gradle.kts if needed
+            $settingsGradle = "$project\android\settings.gradle.kts"
+            if (Test-Path $settingsGradle) {
+              $content = Get-Content $settingsGradle -Raw
+              $content = $content -replace 'id\("org\.jetbrains\.kotlin\.android"\) version "[^"]*"', 'id("org.jetbrains.kotlin.android") version "1.9.10"'
+              Set-Content -Path $settingsGradle -Value $content -Encoding UTF8
+              Write-Host "Updated Kotlin version in $settingsGradle"
+            }
+          }
 
-        # Vendor
+      - name: Create fresh Flutter projects
+        shell: pwsh
+        run: |
+          flutter create --template=app --platforms=android customer_new
+          flutter create --template=app --platforms=android vendor_new
+          flutter create --template=app --platforms=android rider_new
 
-        Copy-Item -Path vendor\lib -Destination vendor_new\lib -Recurse -Force
+      - name: Copy Dart code, assets, and Android config
+        shell: pwsh
+        run: |
+          # Customer
+          Copy-Item -Path customer\lib -Destination customer_new\lib -Recurse -Force
+          Copy-Item -Path customer\assets -Destination customer_new\assets -Recurse -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path customer\pubspec.yaml -Destination customer_new\pubspec.yaml -Force
+          Copy-Item -Path customer\android -Destination customer_new\android -Recurse -Force -ErrorAction SilentlyContinue
+          # Vendor
+          Copy-Item -Path vendor\lib -Destination vendor_new\lib -Recurse -Force
+          Copy-Item -Path vendor\assets -Destination vendor_new\assets -Recurse -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path vendor\pubspec.yaml -Destination vendor_new\pubspec.yaml -Force
+          Copy-Item -Path vendor\android -Destination vendor_new\android -Recurse -Force -ErrorAction SilentlyContinue
+          # Rider
+          Copy-Item -Path rider\lib -Destination rider_new\lib -Recurse -Force
+          Copy-Item -Path rider\assets -Destination rider_new\assets -Recurse -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path rider\pubspec.yaml -Destination rider_new\pubspec.yaml -Force
+          Copy-Item -Path rider\android -Destination rider_new\android -Recurse -Force -ErrorAction SilentlyContinue
 
-        Copy-Item -Path vendor\assets -Destination vendor_new\assets -Recurse -Force -ErrorAction SilentlyContinue
+      - name: Get Flutter dependencies
+        shell: pwsh
+        run: |
+          Set-Location customer_new
+          flutter pub get
+          Set-Location ../vendor_new
+          flutter pub get
+          Set-Location ../rider_new
+          flutter pub get
 
-        Copy-Item -Path vendor\pubspec.yaml -Destination vendor_new\pubspec.yaml -Force
+      - name: Build Customer APK
+        working-directory: customer_new
+        shell: pwsh
+        run: flutter build apk --release --split-per-abi
 
-        Copy-Item -Path vendor\android -Destination vendor_new\android -Recurse -Force -ErrorAction SilentlyContinue
+      - name: Build Vendor APK
+        working-directory: vendor_new
+        shell: pwsh
+        run: flutter build apk --release --split-per-abi
 
-        # Rider
+      - name: Build Rider APK
+        working-directory: rider_new
+        shell: pwsh
+        run: flutter build apk --release --split-per-abi
 
-        Copy-Item -Path rider\lib -Destination rider_new\lib -Recurse -Force
+      - name: Upload Customer APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: customer-apk
+          path: customer_new/build/app/outputs/flutter-apk/
+          retention-days: 7
 
-        Copy-Item -Path rider\assets -Destination rider_new\assets -Recurse -Force -ErrorAction SilentlyContinue
+      - name: Upload Vendor APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vendor-apk
+          path: vendor_new/build/app/outputs/flutter-apk/
+          retention-days: 7
 
-        Copy-Item -Path rider\pubspec.yaml -Destination rider_new\pubspec.yaml -Force
-
-        Copy-Item -Path rider\android -Destination rider_new\android -Recurse -Force -ErrorAction SilentlyContinue'
-    - name: Get Flutter dependencies
-      shell: pwsh
-      run: 'Set-Location customer_new
-
-        flutter pub get
-
-        Set-Location ../vendor_new
-
-        flutter pub get
-
-        Set-Location ../rider_new
-
-        flutter pub get'
-    - name: Build Customer APK
-      working-directory: customer_new
-      shell: pwsh
-      run: flutter build apk --release --split-per-abi
-    - name: Build Vendor APK
-      working-directory: vendor_new
-      shell: pwsh
-      run: flutter build apk --release --split-per-abi
-    - name: Build Rider APK
-      working-directory: rider_new
-      shell: pwsh
-      run: flutter build apk --release --split-per-abi
-    - name: Upload Customer APK artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: customer-apk
-        path: customer_new/build/app/outputs/flutter-apk/
-        retention-days: 7
-    - name: Upload Vendor APK artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: vendor-apk
-        path: vendor_new/build/app/outputs/flutter-apk/
-        retention-days: 7
-    - name: Upload Rider APK artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: rider-apk
-        path: rider_new/build/app/outputs/flutter-apk/
-        retention-days: 7
+      - name: Upload Rider APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rider-apk
+          path: rider_new/build/app/outputs/flutter-apk/
+          retention-days: 7
