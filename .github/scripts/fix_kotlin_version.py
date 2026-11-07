@@ -18,10 +18,9 @@ def fix_kotlin_version(project_dir):
         with open(root_build_gradle, 'r') as f:
             content = f.read()
         
-        print(f'Original content (first 1000 chars): {content[:1000]}', flush=True)
+        print(f'Original content (first 2000 chars): {content[:2000]}', flush=True)
         
         # Handle kotlin_version in ext block - matches both 'ext.kotlin_version' and 'kotlin_version'
-        # Matches: ext.kotlin_version = '<latest-version>' or kotlin_version = '1.7.10'
         original_content = content
         content = re.sub(
             r'(?:ext\.)?(kotlin_version\s*=\s*)[\'"][^\'"]*[\'"]',
@@ -36,6 +35,7 @@ def fix_kotlin_version(project_dir):
             content
         )
         
+        print(f'Content changed: {content != original_content}', flush=True)
         if content != original_content:
             with open(root_build_gradle, 'w') as f:
                 f.write(content)
@@ -50,9 +50,15 @@ def fix_kotlin_version(project_dir):
             print('SUCCESS: kotlin_version is now 1.9.10 in root build.gradle', flush=True)
         else:
             print('WARNING: kotlin_version may not have been updated correctly in root', flush=True)
-            print(f'New content (first 1000 chars): {new_content[:1000]}', flush=True)
+            print(f'New content (first 2000 chars): {new_content[:2000]}', flush=True)
     else:
         print(f'NOT FOUND: {root_build_gradle}', flush=True)
+        # List what's in the project dir
+        android_dir = os.path.join(project_dir, 'android')
+        if os.path.exists(android_dir):
+            print(f'Contents of {android_dir}: {os.listdir(android_dir)}', flush=True)
+        else:
+            print(f'android dir does not exist: {android_dir}', flush=True)
     
     # Fix APP build.gradle (app level) - for classpath
     app_build_gradle = os.path.join(project_dir, 'android', 'app', 'build.gradle')
