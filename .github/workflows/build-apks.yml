@@ -63,24 +63,21 @@ jobs:
           flutter create --template=app --platforms=android vendor_new
           flutter create --template=app --platforms=android rider_new
 
-      - name: Copy Dart code, assets, and Android config
+      - name: Copy Dart code, assets, and pubspec
         shell: pwsh
         run: |
           # Customer
           Copy-Item -Path customer\lib -Destination customer_new\lib -Recurse -Force
           Copy-Item -Path customer\assets -Destination customer_new\assets -Recurse -Force -ErrorAction SilentlyContinue
           Copy-Item -Path customer\pubspec.yaml -Destination customer_new\pubspec.yaml -Force
-          Copy-Item -Path customer\android -Destination customer_new\android -Recurse -Force -ErrorAction SilentlyContinue
           # Vendor
           Copy-Item -Path vendor\lib -Destination vendor_new\lib -Recurse -Force
           Copy-Item -Path vendor\assets -Destination vendor_new\assets -Recurse -Force -ErrorAction SilentlyContinue
           Copy-Item -Path vendor\pubspec.yaml -Destination vendor_new\pubspec.yaml -Force
-          Copy-Item -Path vendor\android -Destination vendor_new\android -Recurse -Force -ErrorAction SilentlyContinue
           # Rider
           Copy-Item -Path rider\lib -Destination rider_new\lib -Recurse -Force
           Copy-Item -Path rider\assets -Destination rider_new\assets -Recurse -Force -ErrorAction SilentlyContinue
           Copy-Item -Path rider\pubspec.yaml -Destination rider_new\pubspec.yaml -Force
-          Copy-Item -Path rider\android -Destination rider_new\android -Recurse -Force -ErrorAction SilentlyContinue
 
       - name: Fix Kotlin version in generated projects (Python script - AFTER copying Android config)
         shell: pwsh
