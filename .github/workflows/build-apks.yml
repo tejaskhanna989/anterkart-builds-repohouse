@@ -28,27 +28,36 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      # Fix Groovy QName/XmlParser issue by adding groovy-xml to buildscript classpath
-      # This init script runs before buildscript evaluation
-      - name: Fix Groovy QName/XmlParser issue
+      # Patch Flutter SDK's gradle plugin to replace groovy.xml.QName and groovy.xml.XmlParser
+      # with alternatives that don't require the groovy-xml module
+      - name: Patch Flutter SDK gradle plugin (fix Groovy QName/XmlParser)
         run: |
-          # Create Gradle init script to add groovy-xml to buildscript classpath
-          # This runs before buildscript evaluation
-          cat > /tmp/groovy-fix.gradle << 'EOF'
-          buildscript {
-            dependencies {
-              classpath 'org.codehaus.groovy:groovy-xml:3.0.13'
-            }
-          }
-          EOF
-          
-          # Apply to Gradle - init scripts in init.d are loaded before buildscript evaluation
-          export GRADLE_USER_HOME=/tmp/gradle
-          mkdir -p $GRADLE_USER_HOME/init.d
-          cp /tmp/groovy-fix.gradle $GRADLE_USER_HOME/init.d/groovy-fix.gradle
-          
-          echo "Groovy fix applied to GRADLE_USER_HOME/init.d/"
-          ls -la $GRADLE_USER_HOME/init.d/
+          # Find the flutter.groovy file in the Flutter SDK
+          FLUTTER_GROOVY=$(find /opt/hostedtoolcache/flutter -name "flutter.groovy" -path "*/flutter_tools/gradle/*" 2>/dev/null | head -1)
+          if [ -n "$FLUTTER_GROOVY" ]; then
+            echo "Found flutter.groovy at: $FLUTTER_GROOVY"
+            # Backup the original file
+            cp "$FLUTTER_GROOVY" "$FLUTTER_GROOVY.backup"
+            
+            # 1. Remove the groovy.xml.QName import
+            sed -i 's/import groovy.xml.QName//' "$FLUTTER_GROOVY"
+            
+            # 2. Remove the groovy.xml.XmlParser import
+            sed -i 's/import groovy.xml.XmlParser//' "$FLUTTER_GROOVY"
+            
+            # 3. Replace QName with javax.xml.namespace.QName (standard Java API)
+            sed -i 's/\bQName\b/javax.xml.namespace.QName/g' "$FLUTTER_GROOVY"
+            
+            # 4. Replace XmlParser with groovy.util.XmlParser (in groovy module, not groovy-xml)
+            sed -i 's/\bXmlParser\b/groovy.util.XmlParser/g' "$FLUTTER_GROOVY"
+            
+            echo "Patched flutter.groovy - replaced QName and XmlParser with alternatives"
+            # Verify the changes
+            echo "Checking for remaining QName/XmlParser references:"
+            grep -n "QName\|XmlParser" "$FLUTTER_GROOVY" || echo "No references found"
+          else
+            echo "WARNING: flutter.groovy not found!"
+          fi
 
       - name: Create fresh Flutter projects
         run: |
