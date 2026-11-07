@@ -36,7 +36,7 @@ jobs:
       - name: Patch Flutter SDK gradle plugin (fix Groovy QName/XmlParser)
         shell: pwsh
         run: |
-          $flutterGroovy = "C:\hostedtoolcache\windows\flutter\3.22.0\x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy"
+          $flutterGroovy = "C:\hostedtoolcache\windows\flutter\stable-3.22.0-x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy"
           if (Test-Path $flutterGroovy) {
             Write-Host "Found flutter.groovy at: $flutterGroovy"
             Copy-Item "$flutterGroovy" "$flutterGroovy.backup"
@@ -47,8 +47,8 @@ jobs:
             }
             Write-Host "Patched flutter.groovy successfully"
             Write-Host "Checking for remaining QName/XmlParser references:"
-            Select-String -Pattern "QName|XmlParser" -Path "C:\hostedtoolcache\windows\flutter\3.22.0\x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy" | ForEach-Object { Write-Host "$($_.LineNumber): $($_.Line)" } | Out-Host
-            if (-not (Select-String -Pattern "QName|XmlParser" -Path "C:\hostedtoolcache\windows\flutter\3.22.0\x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy")) {
+            Select-String -Pattern "QName|XmlParser" -Path "C:\hostedtoolcache\windows\flutter\stable-3.22.0-x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy" | ForEach-Object { Write-Host "$($_.LineNumber): $($_.Line)" } | Out-Host
+            if (-not (Select-String -Pattern "QName|XmlParser" -Path "C:\hostedtoolcache\windows\flutter\stable-3.22.0-x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy")) {
               Write-Host "No references found"
             }
           } else {
@@ -67,13 +67,13 @@ jobs:
             if (Test-Path $buildGradle) {
               $content = Get-Content $buildGradle -Raw
               # Update kotlin_version in ext block
-              $content = $content -replace 'kotlin_version\s*=\s*["\']1\.7\.[0-9]+["\']', 'kotlin_version = "1.9.10"'
-              $content = $content -replace 'kotlin_version\s*=\s*["\']1\.8\.[0-9]+["\']', 'kotlin_version = "1.9.10"'
-              $content = $content -replace 'kotlin_version\s*=\s*["\']1\.9\.[0-9]+["\']', 'kotlin_version = "1.9.10"'
+              $content = $content -replace 'kotlin_version\s*=\s*["'']1\.7\.[0-9]+["'']', 'kotlin_version = "1.9.10"'
+              $content = $content -replace 'kotlin_version\s*=\s*["'']1\.8\.[0-9]+["'']', 'kotlin_version = "1.9.10"'
+              $content = $content -replace 'kotlin_version\s*=\s*["'']1\.9\.[0-9]+["'']', 'kotlin_version = "1.9.10"'
               # Also handle the case where it's in buildscript dependencies
-              $content = $content -replace 'classpath\s*["\']org\.jetbrains\.kotlin:kotlin-gradle-plugin:1\.7\.[0-9]+["\']', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
-              $content = $content -replace 'classpath\s*["\']org\.jetbrains\.kotlin:kotlin-gradle-plugin:1\.8\.[0-9]+["\']', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
-              $content = $content -replace 'classpath\s*["\']org\.jetbrains\.kotlin:kotlin-gradle-plugin:1\.9\.[0-9]+["\']', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
+              $content = $content -replace 'classpath\s*["'']org\.jetbrains\.kotlin:kotlin-gradle-plugin:1\.7\.[0-9]+["'']', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
+              $content = $content -replace 'classpath\s*["'']org\.jetbrains\.kotlin:kotlin-gradle-plugin:1\.8\.[0-9]+["'']', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
+              $content = $content -replace 'classpath\s*["'']org\.jetbrains\.kotlin:kotlin-gradle-plugin:1\.9\.[0-9]+["'']', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
               Set-Content -Path $buildGradle -Value $content -Encoding UTF8
               Write-Host "Updated Kotlin version in $buildGradle"
             }
@@ -82,9 +82,9 @@ jobs:
             $settingsGradle = "$project\android\settings.gradle"
             if (Test-Path $settingsGradle) {
               $content = Get-Content $settingsGradle -Raw
-              $content = $content -replace 'classpath\s*["\']org\.jetbrains\.kotlin:kotlin-gradle-plugin:1\.7\.[0-9]+["\']', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
-              $content = $content -replace 'classpath\s*["\']org\.jetbrains\.kotlin:kotlin-gradle-plugin:1\.8\.[0-9]+["\']', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
-              $content = $content -replace 'classpath\s*["\']org\.jetbrains\.kotlin:kotlin-gradle-plugin:1\.9\.[0-9]+["\']', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
+              $content = $content -replace 'classpath\s*["'']org\.jetbrains\.kotlin:kotlin-gradle-plugin:1\.7\.[0-9]+["'']', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
+              $content = $content -replace 'classpath\s*["'']org\.jetbrains\.kotlin:kotlin-gradle-plugin:1\.8\.[0-9]+["'']', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
+              $content = $content -replace 'classpath\s*["'']org\.jetbrains\.kotlin:kotlin-gradle-plugin:1\.9\.[0-9]+["'']', 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"'
               Set-Content -Path $settingsGradle -Value $content -Encoding UTF8
               Write-Host "Updated Kotlin version in $settingsGradle"
             }
