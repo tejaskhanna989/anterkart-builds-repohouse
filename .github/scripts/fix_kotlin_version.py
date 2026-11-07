@@ -9,7 +9,7 @@ def fix_kotlin_version(project_dir):
     print(f'Project dir absolute: {os.path.abspath(project_dir)}', flush=True)
     print(f'Project dir exists: {os.path.exists(project_dir)}', flush=True)
     
-    # Fix ROOT build.gradle (project level) - add ext.kotlin_version and classpath
+    # Fix ROOT build.gradle (project level) - add buildscript with kotlin_version and classpath
     root_build_gradle = os.path.join(project_dir, 'android', 'build.gradle')
     print(f'Looking for ROOT: {root_build_gradle}', flush=True)
     print(f'ROOT Exists: {os.path.exists(root_build_gradle)}', flush=True)
@@ -23,57 +23,41 @@ def fix_kotlin_version(project_dir):
         
         original_content = content
         
-        # Add ext.kotlin_version = '1.9.10' in the ext block (or create ext block)
-        # First, check if ext block exists
-        if 'ext {' in content:
-            print('ROOT: Found existing ext block', flush=True)
-            # Add kotlin_version to existing ext block
+        # Check if buildscript block exists
+        if 'buildscript {' in content:
+            print('ROOT: Found existing buildscript block', flush=True)
+            # Update kotlin_version in ext block within buildscript
             content = re.sub(
-                r'(ext\s*\{[^}]*)',
-                r'\1\n    kotlin_version = "1.9.10"',
+                r'(buildscript\s*\{[^}]*ext\s*\{[^}]*)',
+                r'\1\n        kotlin_version = "1.9.10"',
                 content,
                 count=1
             )
+            # Update classpath
+            content = re.sub(
+                r'classpath\s*[\'"]org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+[\'"]',
+                'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"',
+                content
+            )
         else:
-            print('ROOT: No ext block found', flush=True)
-            # Add ext block after buildscript or at the beginning
-            if 'buildscript {' in content:
-                print('ROOT: Found buildscript block', flush=True)
-                # Add classpath if not present
-                content = re.sub(
-                    r'(buildscript\s*\{[^}]*dependencies\s*\{[^}]*)\}',
-                    r'\1\n        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"\n    }',
-                    content,
-                    count=1
-                )
-                # Add ext block after buildscript
-                content = re.sub(
-                    r'(buildscript\s*\{[^}]*\})',
-                    r'\1\n\next {\n    kotlin_version = "1.9.10"\n}',
-                    content,
-                    count=1
-                )
-            else:
-                print('ROOT: No buildscript block, adding ext at beginning', flush=True)
-                # Add at the beginning
-                content = 'ext {\n    kotlin_version = "1.9.10"\n}\n\n' + content
-        
-        # Also handle classpath in buildscript dependencies
-        content = re.sub(
-            r'classpath\s*[\'"]org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+[\'"]',
-            'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"',
-            content
-        )
-        
-        # Also add classpath if not present in buildscript dependencies
-        if 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"' not in content:
-            if 'buildscript {' in content:
-                content = re.sub(
-                    r'(buildscript\s*\{[^}]*dependencies\s*\{[^}]*)\}',
-                    r'\1\n        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"\n    }',
-                    content,
-                    count=1
-                )
+            print('ROOT: No buildscript block, adding one with kotlin_version and classpath', flush=True)
+            # Add buildscript block at the beginning
+            buildscript_block = '''buildscript {
+    ext {
+        kotlin_version = "1.9.10"
+    }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:8.1.0"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"
+    }
+}
+
+'''
+            content = buildscript_block + content
         
         print(f'ROOT Content changed: {content != original_content}', flush=True)
         if content != original_content:
@@ -87,13 +71,12 @@ def fix_kotlin_version(project_dir):
         with open(root_build_gradle, 'r') as f:
             new_content = f.read()
         print(f'ROOT New content: {new_content}', flush=True)
-        if 'kotlin_version = "1.9.10"' in new_content:
-            print('SUCCESS: kotlin_version is now 1.9.10 in root build.gradle', flush=True)
+        if 'kotlin_version = "1.9.10"' in new_content and 'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"' in new_content:
+            print('SUCCESS: kotlin_version and classpath are now 1.9.10 in root build.gradle', flush=True)
         else:
-            print('WARNING: kotlin_version may not have been updated correctly in root', flush=True)
+            print('WARNING: kotlin_version or classpath may not have been updated correctly in root', flush=True)
     else:
         print(f'NOT FOUND ROOT: {root_build_gradle}', flush=True)
-        # List what's in the project dir
         android_dir = os.path.join(project_dir, 'android')
         if os.path.exists(android_dir):
             print(f'Contents of {android_dir}: {os.listdir(android_dir)}', flush=True)
@@ -115,7 +98,6 @@ def fix_kotlin_version(project_dir):
         original_content = content
         
         # Remove id "kotlin-android" from plugins block
-        # This regex matches the line with id "kotlin-android" or id 'kotlin-android'
         content = re.sub(
             r'\n\s*id\s+[\'"]kotlin-android[\'"]\s*',
             '',
@@ -123,7 +105,6 @@ def fix_kotlin_version(project_dir):
         )
         
         # Add apply plugin: "kotlin-android" after the plugins block
-        # Find the end of the plugins block
         content = re.sub(
             r'(plugins\s*\{[^}]*\})',
             r'\1\n\napply plugin: "kotlin-android"',
@@ -168,7 +149,6 @@ def fix_kotlin_version(project_dir):
         
         print(f'SETTINGS Processing: {settings_gradle}', flush=True)
         
-        # Handle classpath in buildscript dependencies
         original_content = content
         content = re.sub(
             r'classpath\s*[\'"]org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+[\'"]',
@@ -186,7 +166,6 @@ def fix_kotlin_version(project_dir):
         print(f'NOT FOUND SETTINGS: {settings_gradle}', flush=True)
 
 if __name__ == '__main__':
-    # Use absolute path from GITHUB_WORKSPACE if available
     github_workspace = os.environ.get('GITHUB_WORKSPACE', '.')
     print(f'GITHUB_WORKSPACE: {github_workspace}', flush=True)
     
