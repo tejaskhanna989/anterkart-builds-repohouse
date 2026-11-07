@@ -16,30 +16,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      # Download and patch Flutter SDK before using it
-      - name: Download and patch Flutter SDK
+      # Patch Flutter SDK's gradle plugin to fix Groovy QName/XmlParser issue
+      - name: Patch Flutter SDK gradle plugin (fix Groovy QName/XmlParser)
         run: |
-          # Download Flutter SDK
-          FLUTTER_VERSION="3.22.0"
-          FLUTTER_CHANNEL="stable"
-          FLUTTER_URL="https://storage.googleapis.com/flutter_infra_release/releases/${FLUTTER_CHANNEL}/linux/flutter_linux_${FLUTTER_VERSION}-${FLUTTER_CHANNEL}.tar.xz"
-          
-          echo "Downloading Flutter ${FLUTTER_VERSION}..."
-          curl -L -o /tmp/flutter.tar.xz "${FLUTTER_URL}"
-          
-          echo "Extracting Flutter..."
-          tar -xf /tmp/flutter.tar.xz -C /tmp
-          
-          # Patch flutter.groovy to fix Groovy 3 QName/XmlParser issue
-          FLUTTER_GROOVY=$(find /tmp/flutter -name "flutter.groovy" -path "*/flutter_tools/gradle/*" 2>/dev/null | head -1)
+          # Find the flutter.groovy file in the installed Flutter SDK
+          FLUTTER_GROOVY=$(find /opt/hostedtoolcache/flutter -name "flutter.groovy" -path "*/flutter_tools/gradle/*" 2>/dev/null | head -1)
           if [ -n "$FLUTTER_GROOVY" ]; then
             echo "Found flutter.groovy at: $FLUTTER_GROOVY"
+            # Backup the original file
             cp "$FLUTTER_GROOVY" "$FLUTTER_GROOVY.backup"
             
             # Use Python to properly patch the file
@@ -48,6 +44,8 @@ import re
 
 with open("$FLUTTER_GROOVY", 'r') as f:
     content = f.read()
+
+print(f"Original file size: {len(content)}")
 
 # 1. Remove the groovy.xml.QName import
 content = re.sub(r'import groovy\.xml\.QName\s*\n', '', content)
@@ -72,12 +70,12 @@ import java.io.StringReader
 # Add imports after package declaration
 content = re.sub(r'(^package .*\n)', r'\1\n' + imports + '\n', content, count=1)
 
-# 5. Replace XmlParser usage with newXmlParser()
+# 4. Replace XmlParser usage with newXmlParser()
 content = re.sub(r'new XmlParser\(\)', 'newXmlParser()', content)
 content = re.sub(r'new groovy\.util\.XmlParser\(\)', 'newXmlParser()', content)
 content = re.sub(r'new groovy\.xml\.XmlParser\(\)', 'newXmlParser()', content)
 
-# 6. Add the newXmlParser helper method and XmlSlurperAdapter class
+# 5. Add the newXmlParser helper method and XmlSlurperAdapter class
 helper_code = """
 
 def newXmlParser() {
@@ -109,7 +107,6 @@ class XmlSlurperAdapter {
 """
 
 # Find the first 'def ' or 'class ' and insert before it
-import re
 content = re.sub(r'(^def |^class )', helper_code + r'\1', content, count=1, flags=re.MULTILINE)
 
 # Write the patched file
@@ -125,21 +122,12 @@ PYEOF
           else
             echo "WARNING: flutter.groovy not found!"
           fi
-          
-          # Set FLUTTER_ROOT to patched SDK
-          echo "FLUTTER_ROOT=/tmp/flutter" >> $GITHUB_ENV
-
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
 
       - name: Create fresh Flutter projects
         run: |
-          /tmp/flutter/bin/flutter create --template=app --platforms=android customer_new
-          /tmp/flutter/bin/flutter create --template=app --platforms=android vendor_new
-          /tmp/flutter/bin/flutter create --template=app --platforms=android rider_new
+          flutter create --template=app --platforms=android customer_new
+          flutter create --template=app --platforms=android vendor_new
+          flutter create --template=app --platforms=android rider_new
 
       - name: Copy Dart code, assets, and Android config
         run: |
@@ -161,21 +149,21 @@ PYEOF
 
       - name: Get Flutter dependencies
         run: |
-          cd customer_new && /tmp/flutter/bin/flutter pub get
-          cd ../vendor_new && /tmp/flutter/bin/flutter pub get
-          cd ../rider_new && /tmp/flutter/bin/flutter pub get
+          cd customer_new && flutter pub get
+          cd ../vendor_new && flutter pub get
+          cd ../rider_new && flutter pub get
 
       - name: Build Customer APK
         working-directory: customer_new
-        run: /tmp/flutter/bin/flutter build apk --release --split-per-abi
+        run: flutter build apk --release --split-per-abi
 
       - name: Build Vendor APK
         working-directory: vendor_new
-        run: /tmp/flutter/bin/flutter build apk --release --split-per-abi
+        run: flutter build apk --release --split-per-abi
 
       - name: Build Rider APK
         working-directory: rider_new
-        run: /tmp/flutter/bin/flutter build apk --release --split-per-abi
+        run: flutter build apk --release --split-per-abi
 
       - name: Upload Customer APK artifacts
         uses: actions/upload-artifact@v4
