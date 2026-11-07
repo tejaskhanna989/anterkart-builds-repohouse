@@ -47,25 +47,16 @@ jobs:
             # 3. Replace QName with javax.xml.namespace.QName
             sed -i 's/\bQName\b/javax.xml.namespace.QName/g' "$FLUTTER_GROOVY"
             
-            # 6. Replace XmlParser usage with standard Java DocumentBuilder
-            # Replace 'new XmlParser()' with a custom method call
-            sed -i 's/new XmlParser()/newXmlParser()/g' "$FLUTTER_GROOVY"
-            sed -i 's/new groovy\.util\.XmlParser()/newXmlParser()/g' "$FLUTTER_GROOVY"
-            sed -i 's/new groovy\.xml\.XmlParser()/newXmlParser()/g' "$FLUTTER_GROOVY"
-            
-            # Add necessary imports and helper method using sed
-            # Add imports after package declaration
+            # 4. Add necessary imports after package declaration
             sed -i '/^package /a \
 import javax.xml.parsers.DocumentBuilderFactory\nimport javax.xml.parsers.DocumentBuilder\nimport org.w3c.dom.Document\nimport org.w3c.dom.Node\nimport org.w3c.dom.NodeList\nimport org.w3c.dom.Element\nimport org.xml.sax.InputSource\nimport java.io.StringReader' "$FLUTTER_GROOVY"
             
-            # Replace XmlParser usage with newXmlParser()
+            # 4. Replace XmlParser usage with newXmlParser()
             sed -i 's/new XmlParser()/newXmlParser()/g' "$FLUTTER_GROOVY"
             sed -i 's/new groovy\.util\.XmlParser()/newXmlParser()/g' "$FLUTTER_GROOVY"
             sed -i 's/new groovy\.xml\.XmlParser()/newXmlParser()/g' "$FLUTTER_GROOVY"
             
             # Add the newXmlParser helper method and XmlSlurperAdapter class
-            # Find the first 'def ' or 'class ' and insert before it
-            # We'll append at the end of the file for simplicity
             cat >> "$FLUTTER_GROOVY" << 'EOF'
 
 def newXmlParser() {
