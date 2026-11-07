@@ -86,7 +86,7 @@ tasks.register("clean", Delete) {{
         else:
             print(f'android dir does not exist: {android_dir}', flush=True)
     
-    # Fix APP build.gradle (app level) - keep the kotlin-android plugin ID but let Flutter plugin manage version
+    # Fix APP build.gradle (app level) - add buildscript block to force kotlin version
     app_build_gradle = os.path.join(project_dir, 'android', 'app', 'build.gradle')
     print(f'Looking for APP: {app_build_gradle}', flush=True)
     print(f'APP Exists: {os.path.exists(app_build_gradle)}', flush=True)
@@ -100,12 +100,19 @@ tasks.register("clean", Delete) {{
         
         original_content = content
         
-        # Keep the kotlin-android plugin ID but don't specify version (let Flutter plugin manage it)
-        # Just ensure we don't have the versioned version
+        # Remove id "kotlin-android" from plugins block
         content = re.sub(
-            r'id\s+[\'"]org\.jetbrains\.kotlin\.android[\'"]\s+version\s+[\'"][^\'"]+[\'"]',
-            'id "kotlin-android"',
+            r'\n\s*id\s+[\'"]kotlin-android[\'"]\s*',
+            '',
             content
+        )
+        
+        # Add apply plugin: "kotlin-android" after the plugins block
+        content = re.sub(
+            r'(plugins\s*\{[^}]*\})',
+            r'\1\n\napply plugin: "kotlin-android"',
+            content,
+            count=1
         )
         
         # Also handle classpath in buildscript dependencies
@@ -114,6 +121,24 @@ tasks.register("clean", Delete) {{
             f'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:{KOTLIN_VERSION}"',
             content
         )
+        
+        # Add buildscript block to app-level build.gradle to force kotlin version
+        if 'buildscript {' not in content:
+            # Add buildscript block at the beginning
+            buildscript_block = f'''buildscript {{
+    ext.kotlin_version = '{KOTLIN_VERSION}'
+    repositories {{
+        google()
+        mavenCentral()
+    }}
+    dependencies {{
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:{KOTLIN_VERSION}"
+    }}
+}}
+
+'''
+            content = buildscript_block + content
+            print('APP: Added buildscript block to force kotlin version', flush=True)
         
         if content != original_content:
             with open(app_build_gradle, 'w') as f:
@@ -125,11 +150,12 @@ tasks.register("clean", Delete) {{
         # Verify
         with open(app_build_gradle, 'r') as f:
             new_content = f.read()
-        if 'id "kotlin-android"' in new_content and 'version' not in new_content.split('id "kotlin-android"')[1][:50]:
-            print('SUCCESS: kotlin-android plugin ID kept without version', flush=True)
+        if 'apply plugin: "kotlin-android"' in new_content:
+            print('SUCCESS: apply plugin: "kotlin-android" added in app build.gradle', flush=True)
         else:
-            print('WARNING: kotlin-android plugin may not be correctly configured', flush=True)
-            print(f'APP New content preview: {new_content[:1000]}', flush=True)
+            print('WARNING: apply plugin: "kotlin-android" may not have been added correctly', flush=True)
+            for m in re.finditer(r'apply plugin', new_content):
+                print(f'Found "apply plugin" at position {m.start()}: ...{new_content[max(0,m.start()-50):m.end()+50]}...', flush=True)
     else:
         print(f'NOT FOUND APP: {app_build_gradle}', flush=True)
     
