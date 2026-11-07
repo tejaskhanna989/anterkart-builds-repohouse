@@ -21,8 +21,8 @@ def fix_kotlin_version(project_dir):
     print(f'Project dir absolute: {os.path.abspath(project_dir)}', flush=True)
     print(f'Project dir exists: {os.path.exists(project_dir)}', flush=True)
     
-    # Use Kotlin 1.8.22 which is more compatible with AGP 7.4.2
-    KOTLIN_VERSION = '1.8.22'
+    # Use Kotlin 1.7.20 (minimum for AGP 7.4.2) to avoid version conflicts
+    KOTLIN_VERSION = '1.7.20'
     AGP_VERSION = '7.4.2'
     
     # Fix ROOT build.gradle (project level) - use standard Flutter structure
@@ -121,6 +121,16 @@ tasks.register("clean", Delete) {{
             f'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:{KOTLIN_VERSION}"',
             content
         )
+        
+        # Try to set kotlinVersion in flutter block (may not work in older Flutter versions)
+        if 'flutter {' in content:
+            content = re.sub(
+                r'(flutter\s*\{[^}]*)',
+                r'\1\n    kotlinVersion = "' + KOTLIN_VERSION + '"',
+                content,
+                count=1
+            )
+            print('APP: Attempted to add kotlinVersion to flutter block', flush=True)
         
         if content != original_content:
             with open(app_build_gradle, 'w') as f:
