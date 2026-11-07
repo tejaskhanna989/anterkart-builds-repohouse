@@ -21,7 +21,11 @@ def fix_kotlin_version(project_dir):
     print(f'Project dir absolute: {os.path.abspath(project_dir)}', flush=True)
     print(f'Project dir exists: {os.path.exists(project_dir)}', flush=True)
     
-    # Fix ROOT build.gradle (project level) - use standard Flutter structure with hardcoded kotlin version
+    # Use Kotlin 1.8.22 which is more compatible with AGP 7.4.2
+    KOTLIN_VERSION = '1.8.22'
+    AGP_VERSION = '7.4.2'
+    
+    # Fix ROOT build.gradle (project level) - use standard Flutter structure
     root_build_gradle = os.path.join(project_dir, 'android', 'build.gradle')
     print(f'Looking for ROOT: {root_build_gradle}', flush=True)
     print(f'ROOT Exists: {os.path.exists(root_build_gradle)}', flush=True)
@@ -33,37 +37,37 @@ def fix_kotlin_version(project_dir):
         print(f'ROOT Original content length: {len(content)}', flush=True)
         print(f'ROOT Original content: {content}', flush=True)
         
-        # Replace entire content with standard Flutter structure with HARDCODED kotlin version
-        new_content = '''buildscript {
-    ext.kotlin_version = '1.9.10'
-    repositories {
+        # Replace entire content with standard Flutter structure
+        new_content = f'''buildscript {{
+    ext.kotlin_version = '{KOTLIN_VERSION}'
+    repositories {{
         google()
         mavenCentral()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:7.4.2'
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"
-    }
-}
+    }}
+    dependencies {{
+        classpath 'com.android.tools.build:gradle:{AGP_VERSION}'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:{KOTLIN_VERSION}"
+    }}
+}}
 
-allprojects {
-    repositories {
+allprojects {{
+    repositories {{
         google()
         mavenCentral()
-    }
-}
+    }}
+}}
 
 rootProject.buildDir = "../build"
-subprojects {
-    project.buildDir = "${rootProject.buildDir}/${project.name}"
-}
-subprojects {
+subprojects {{
+    project.buildDir = "${{rootProject.buildDir}}/${{project.name}}"
+}}
+subprojects {{
     project.evaluationDependsOn(":app")
-}
+}}
 
-tasks.register("clean", Delete) {
+tasks.register("clean", Delete) {{
     delete rootProject.buildDir
-}
+}}
 '''
         
         print(f'ROOT Content changed: True', flush=True)
@@ -73,7 +77,7 @@ tasks.register("clean", Delete) {
         
         # Verify
         print(f'ROOT New content: {new_content}', flush=True)
-        print('SUCCESS: Root build.gradle updated to standard Flutter structure with HARDCODED Kotlin 1.9.10', flush=True)
+        print(f'SUCCESS: Root build.gradle updated to standard Flutter structure with Kotlin {KOTLIN_VERSION} and AGP {AGP_VERSION}', flush=True)
     else:
         print(f'NOT FOUND ROOT: {root_build_gradle}', flush=True)
         android_dir = os.path.join(project_dir, 'android')
@@ -114,7 +118,7 @@ tasks.register("clean", Delete) {
         # Also handle classpath in buildscript dependencies
         content = re.sub(
             r'classpath\s*[\'"]org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+[\'"]',
-            'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"',
+            f'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:{KOTLIN_VERSION}"',
             content
         )
         
@@ -151,7 +155,7 @@ tasks.register("clean", Delete) {
         original_content = content
         content = re.sub(
             r'classpath\s*[\'"]org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+[\'"]',
-            'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"',
+            f'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:{KOTLIN_VERSION}"',
             content
         )
         
