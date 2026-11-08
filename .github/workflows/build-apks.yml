@@ -122,6 +122,17 @@ jobs:
           Write-Host "`nRider:"
           Get-Content rider_new\android\build.gradle
 
+      - name: Verify app build.gradle content
+        shell: pwsh
+        run: |
+          Write-Host "=== Verifying app build.gradle content ==="
+          Write-Host "Customer:"
+          Get-Content customer_new\android\app\build.gradle
+          Write-Host "`nVendor:"
+          Get-Content vendor_new\android\app\build.gradle
+          Write-Host "`nRider:"
+          Get-Content rider_new\android\app\build.gradle
+
       - name: Build Customer APK
         working-directory: customer_new
         shell: pwsh
