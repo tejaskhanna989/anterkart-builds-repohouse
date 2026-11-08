@@ -2,12 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../models/order.dart';
 import '../providers/order_provider.dart';
-import '../widgets/order_time.dart';
+import '../models/order.dart';
 
-/// Full order view with timing (placed / updated / completed) and the same
-/// accept → cook → ready actions as the order cards. No dead ends.
 class OrderDetailScreen extends StatefulWidget {
   final int orderId;
   final Order? order;
@@ -122,12 +119,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             ),
                           ),
                         if (order.deliveryBoyId != 0 && order.status == 'ready') const SizedBox(height: 4),
-                        // Live rider tracking map
                         if (order.deliveryBoyId != 0 &&
                             (order.riderLat != null && order.riderLng != null) &&
                             (order.status == 'out_for_delivery' || order.status == 'ready'))
                           _buildLiveRiderMap(order),
-                        // Timing card: placed / elapsed / updated / completed.
                         Card(
                           child: Padding(
                             padding: const EdgeInsets.all(14),
@@ -207,9 +202,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           }
 
   Widget _buildLiveRiderMap(Order o) {
-    final LatLng storeLatLng = LatLng(24.853545, 74.620191); // Store location
+    final LatLng storeLatLng = LatLng(24.853545, 74.620191);
     final LatLng riderLatLng = LatLng(o.riderLat!, o.riderLng!);
-    final LatLng destinationLatLng = LatLng(24.8793635, 74.6351433); // Default destination
+    final LatLng destinationLatLng = LatLng(24.8793635, 74.6351433);
 
     return Card(
       margin: const EdgeInsets.only(top: 8),
