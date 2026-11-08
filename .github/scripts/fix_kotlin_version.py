@@ -9,8 +9,8 @@ def fix_kotlin_version(project_dir):
     print(f'Project dir absolute: {os.path.abspath(project_dir)}', flush=True)
     print(f'Project dir exists: {os.path.exists(project_dir)}', flush=True)
     
-    # Use Kotlin 1.8.22 with AGP 8.1.0 - compatible with Flutter 3.19.6
-    KOTLIN_VERSION = '1.8.22'
+    # Use Kotlin 1.9.10 with AGP 8.1.0 - matches stdlib 1.9.25
+    KOTLIN_VERSION = '1.9.10'
     AGP_VERSION = '8.1.0'
     
     # Fix ROOT build.gradle (project level) - add buildscript block
@@ -57,7 +57,7 @@ def fix_kotlin_version(project_dir):
 
 '''
             content = buildscript_block + content
-            print('ROOT: Added buildscript block with Kotlin 1.8.22', flush=True)
+            print('ROOT: Added buildscript block with Kotlin 1.9.10', flush=True)
         
         with open(root_build_gradle, 'w') as f:
             f.write(content)
@@ -74,7 +74,7 @@ def fix_kotlin_version(project_dir):
         else:
             print(f'android dir does not exist: {android_dir}', flush=True)
     
-    # Fix APP build.gradle (app level) - change plugins DSL to apply plugin for kotlin-android
+    # Fix APP build.gradle (app level) - add kotlin-android plugin with explicit version
     app_build_gradle = os.path.join(project_dir, 'android', 'app', 'build.gradle')
     print(f'Looking for APP: {app_build_gradle}', flush=True)
     print(f'APP Exists: {os.path.exists(app_build_gradle)}', flush=True)
@@ -95,6 +95,14 @@ def fix_kotlin_version(project_dir):
             content
         )
         
+        # Add id "org.jetbrains.kotlin.android" version "1.9.10" to plugins block
+        content = re.sub(
+            r'(plugins\s*\{[^}]*\})',
+            f'\\1\n    id "org.jetbrains.kotlin.android" version "{KOTLIN_VERSION}" apply false',
+            content,
+            count=1
+        )
+        
         # Add apply plugin: "kotlin-android" after the plugins block with ext.kotlin_version
         content = re.sub(
             r'(plugins\s*\{[^}]*\})',
@@ -111,7 +119,6 @@ def fix_kotlin_version(project_dir):
         )
         
         # Fix minSdkVersion to 21 (required by OneSignal library)
-        # Match both "minSdk = flutter.minSdkVersion" and "minSdkVersion flutter.minSdkVersion"
         content = re.sub(
             r'minSdk(?:Version)?\s+(?:=)?\s*flutter\.minSdkVersion',
             'minSdkVersion 21',
