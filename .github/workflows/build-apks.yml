@@ -216,20 +216,20 @@ jobs:
           $maxRetries = 5
           $retryDelay = 10
           for ($i = 1; $i -le $maxRetries; $i++) {
-            Write-Host "Attempt $i/$maxRetries: Testing SSH connection..."
+            Write-Host "Attempt ${i}/${maxRetries}: Testing SSH connection..."
             $testResult = & $plinkPath -ssh -P $env:SSH_PORT -pw "${SSH_PASSWORD}" -batch ${SSH_USER}@${SSH_HOST} "echo 'SSH OK'" 2>&1
             if ($LASTEXITCODE -eq 0) {
               Write-Host "SSH connection successful!"
               break
             }
-            Write-Host "SSH not ready yet: $testResult"
+            Write-Host "SSH not ready yet: ${testResult}"
             if ($i -lt $maxRetries) {
-              Write-Host "Waiting $retryDelay seconds before retry..."
+              Write-Host "Waiting ${retryDelay} seconds before retry..."
               Start-Sleep -Seconds $retryDelay
             }
           }
           if ($LASTEXITCODE -ne 0) {
-            Write-Error "SSH connection failed after $maxRetries attempts"
+            Write-Error "SSH connection failed after ${maxRetries} attempts"
             exit 1
           }
           
@@ -243,7 +243,7 @@ jobs:
           # Function to upload a directory using pscp (Windows-compatible)
           function Upload-Directory {
             param($localPath, $remotePath)
-            Write-Host "Uploading $localPath to $remotePath..."
+            Write-Host "Uploading ${localPath} to ${remotePath}..."
             
             # Create remote directory first
             & $plinkPath -ssh -P $env:SSH_PORT -pw "${SSH_PASSWORD}" -batch ${SSH_USER}@${SSH_HOST} "mkdir -p ${remotePath}"
@@ -261,11 +261,11 @@ jobs:
               # Upload file
               & $pscpPath -P $env:SSH_PORT -pw "${SSH_PASSWORD}" -batch "${file.FullName}" ${SSH_USER}@${SSH_HOST}:${remoteFile}
               if ($LASTEXITCODE -ne 0) {
-                Write-Error "Failed to upload $relativePath"
+                Write-Error "Failed to upload ${relativePath}"
                 exit 1
               }
             }
-            Write-Host "Uploaded $($files.Count) files to $remotePath"
+            Write-Host "Uploaded ${files.Count} files to ${remotePath}"
           }
           
           # Upload each app's APKs
