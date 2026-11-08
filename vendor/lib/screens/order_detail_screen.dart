@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/order.dart';
 import '../providers/order_provider.dart';
-import '../widgets/order_time.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final int orderId;
@@ -96,6 +94,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                     Text(order.pickupCode, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: 6)),
                                   ]),
                                 ),
+                                const Text('Show at\ncounter', textAlign: TextAlign.right, style: TextStyle(fontSize: 12, color: Colors.grey)),
                               ]),
                             ),
                           ),
