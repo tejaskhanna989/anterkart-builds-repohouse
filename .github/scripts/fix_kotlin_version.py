@@ -9,8 +9,8 @@ def fix_kotlin_version(project_dir):
     print(f'Project dir absolute: {os.path.abspath(project_dir)}', flush=True)
     print(f'Project dir exists: {os.path.exists(project_dir)}', flush=True)
     
-    # Use Kotlin 1.9.10 with AGP 8.1.0 - matches stdlib 1.9.25
-    KOTLIN_VERSION = '1.9.10'
+    # Use Kotlin 1.8.22 with AGP 8.1.0 - matches Flutter 3.24.3's internal kotlin-android 1.8.22
+    KOTLIN_VERSION = '1.8.22'
     AGP_VERSION = '8.1.0'
     
     # Fix ROOT build.gradle (project level) - add buildscript block
@@ -57,7 +57,7 @@ def fix_kotlin_version(project_dir):
 
 '''
             content = buildscript_block + content
-            print('ROOT: Added buildscript block with Kotlin 1.9.10', flush=True)
+            print(f'ROOT: Added buildscript block with Kotlin {KOTLIN_VERSION}', flush=True)
         
         with open(root_build_gradle, 'w') as f:
             f.write(content)
@@ -95,8 +95,7 @@ def fix_kotlin_version(project_dir):
             content
         )
         
-        # Add id "org.jetbrains.kotlin.android" version "1.9.10" INSIDE the plugins block
-        # Find the plugins block and insert the new plugin before the closing brace
+        # Add id "org.jetbrains.kotlin.android" version "1.8.22" INSIDE the plugins block
         content = re.sub(
             r'(plugins\s*\{[^}]*)\}',
             f'\\1\n    id "org.jetbrains.kotlin.android" version "{KOTLIN_VERSION}"\n}}',
