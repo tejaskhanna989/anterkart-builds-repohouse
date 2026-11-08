@@ -89,7 +89,6 @@ def fix_kotlin_version(project_dir):
         original_content = content
         
         # Remove id "kotlin-android" from plugins block - preserve newlines
-        # Match the entire line including the newline after it
         content = re.sub(
             r'(\n\s*)id\s+[\'"]kotlin-android[\'"]\s*(\n)',
             r'\1\2',
@@ -108,6 +107,13 @@ def fix_kotlin_version(project_dir):
         content = re.sub(
             r'classpath\s+[\'"]org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+[\'"]',
             f'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:{KOTLIN_VERSION}"',
+            content
+        )
+        
+        # Fix minSdkVersion to 21 (required by OneSignal library)
+        content = re.sub(
+            r'minSdk\s*=\s*flutter\.minSdkVersion',
+            'minSdk = 21',
             content
         )
         
