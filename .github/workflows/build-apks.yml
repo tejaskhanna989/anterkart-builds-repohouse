@@ -70,8 +70,8 @@ jobs:
             if [ -f "$wrapper_props" ]; then
               echo "Original $wrapper_props:"
               cat "$wrapper_props"
-              # Force distributionUrl to services.gradle.org
-              sed -i 's|^distributionUrl=.*$|distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-all.zip|' "$wrapper_props"
+              # Force distributionUrl to services.gradle.org - use Gradle 8.13 (minimum required)
+              sed -i 's|^distributionUrl=.*$|distributionUrl=https\://services.gradle.org/distributions/gradle-8.13-all.zip|' "$wrapper_props"
               echo "Fixed $wrapper_props:"
               cat "$wrapper_props"
             else
