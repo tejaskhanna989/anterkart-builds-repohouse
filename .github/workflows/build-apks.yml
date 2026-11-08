@@ -121,8 +121,8 @@ jobs:
               $content = Get-Content $wrapperProps -Raw
               Write-Host "Original content of ${wrapperProps}:"
               Write-Host $content
-              # Force distributionUrl to services.gradle.org (handles any existing format including escaped URLs)
-              $content = $content -replace 'distributionUrl=.*', 'distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-all.zip'
+              # Force distributionUrl to services.gradle.org - match any line with distributionUrl
+              $content = $content -replace '(?m)^distributionUrl=.*$', 'distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-all.zip'
               Set-Content $wrapperProps $content
               Write-Host "Fixed ${wrapperProps}"
               Get-Content $wrapperProps
