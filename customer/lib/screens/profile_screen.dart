@@ -330,7 +330,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         leading: Container(
           width: 44,
           height: 44,
-          decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(13)),
+          decoration: BoxDecoration(color: color.withOpacity( 0.12), borderRadius: BorderRadius.circular(13)),
           child: Icon(icon, color: color, size: 22),
         ),
         title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
@@ -420,7 +420,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppColors.orange.withValues(alpha: 0.12),
+                color: AppColors.orange.withOpacity( 0.12),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Row(

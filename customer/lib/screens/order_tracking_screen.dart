@@ -131,7 +131,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                   Container(
                     margin: const EdgeInsets.only(top: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
+                    decoration: BoxDecoration(color: Colors.white.withOpacity( 0.2), borderRadius: BorderRadius.circular(10)),
                     child: Row(children: [
                       const Icon(Icons.key, color: Colors.white, size: 18),
                       const SizedBox(width: 8),

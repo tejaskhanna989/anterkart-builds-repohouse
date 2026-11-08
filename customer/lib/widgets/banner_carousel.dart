@@ -53,7 +53,7 @@ class _BannerCarouselState extends State<BannerCarousel> {
                   widget.banners[i].image,
                   width: double.infinity,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(color: const Color(0xFF2563EB).withValues(alpha: 0.1), child: const Center(child: Icon(Icons.image, size: 40, color: Colors.grey))),
+                  errorBuilder: (_, __, ___) => Container(color: const Color(0xFF2563EB).withOpacity( 0.1), child: const Center(child: Icon(Icons.image, size: 40, color: Colors.grey))),
                 ),
               ),
             ),

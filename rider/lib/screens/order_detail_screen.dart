@@ -292,7 +292,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final color = colors[status] ?? Colors.grey;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(color: color.withOpacity( 0.1), borderRadius: BorderRadius.circular(8)),
       child: Text(labels[status] ?? status, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16)),
     );
   }

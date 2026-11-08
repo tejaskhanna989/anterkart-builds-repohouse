@@ -51,7 +51,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           children: [
             _section('Status', Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(color: _statusColor(o.status).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(color: _statusColor(o.status).withOpacity( 0.1), borderRadius: BorderRadius.circular(8)),
               child: Text(_statusText(o.status), style: TextStyle(color: _statusColor(o.status), fontWeight: FontWeight.bold)),
             )),
             if (o.etaMinutes != null) ...[
@@ -169,7 +169,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                    color: const Color(0xFF10B981).withOpacity( 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -205,7 +205,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           decoration: BoxDecoration(
                             color: const Color(0xFF10B981),
                             shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))],
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity( 0.3), blurRadius: 4, offset: const Offset(0, 2))],
                           ),
                           child: const Icon(Icons.motorcycle, color: Colors.white, size: 24),
                         ),
@@ -218,7 +218,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           decoration: BoxDecoration(
                             color: const Color(0xFF2563EB),
                             shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))],
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity( 0.3), blurRadius: 4, offset: const Offset(0, 2))],
                           ),
                           child: const Icon(Icons.store, color: Colors.white, size: 24),
                         ),
@@ -231,7 +231,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           decoration: BoxDecoration(
                             color: const Color(0xFFEF4444),
                             shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))],
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity( 0.3), blurRadius: 4, offset: const Offset(0, 2))],
                           ),
                           child: const Icon(Icons.home, color: Colors.white, size: 24),
                         ),

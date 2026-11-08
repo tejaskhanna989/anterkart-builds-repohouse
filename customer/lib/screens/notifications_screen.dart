@@ -96,7 +96,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     itemBuilder: (_, i) {
                       final n = provider.notifications[i];
                       return Material(
-                        color: n.isRead ? Colors.white : const Color(0xFF0C55E0).withValues(alpha: 0.06),
+                        color: n.isRead ? Colors.white : const Color(0xFF0C55E0).withOpacity( 0.06),
                         borderRadius: BorderRadius.circular(12),
                         child: InkWell(
                           borderRadius: BorderRadius.circular(12),
@@ -106,7 +106,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                  color: n.isRead ? const Color(0xFFEEEEEE) : const Color(0xFF0C55E0).withValues(alpha: 0.3)),
+                                  color: n.isRead ? const Color(0xFFEEEEEE) : const Color(0xFF0C55E0).withOpacity( 0.3)),
                             ),
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,

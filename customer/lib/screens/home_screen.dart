@@ -148,7 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       CircleAvatar(
                         radius: 30,
-                        backgroundColor: const Color(0xFF0C55E0).withValues(alpha: 0.08),
+                        backgroundColor: const Color(0xFF0C55E0).withOpacity( 0.08),
                         child: cat.image.isNotEmpty
                             ? ClipOval(child: Image.network(cat.image, width: 50, height: 50, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.category, color: Color(0xFF0C55E0))))
                             : const Icon(Icons.category, color: Color(0xFF0C55E0)),
@@ -363,7 +363,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Container(
               margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: const Color(0xFF0C55E0).withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF0C55E0).withValues(alpha: 0.3))),
+              decoration: BoxDecoration(color: const Color(0xFF0C55E0).withOpacity( 0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF0C55E0).withOpacity( 0.3))),
               child: Row(children: [
                 const Icon(Icons.location_off, color: Color(0xFF0C55E0), size: 20),
                 const SizedBox(width: 8),

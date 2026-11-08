@@ -20,7 +20,7 @@ class CategoriesScreen extends StatelessWidget {
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProductsScreen(categoryId: c.id, categoryName: c.name))),
             borderRadius: BorderRadius.circular(12),
             child: Column(children: [
-              Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(12), child: c.image.isNotEmpty ? Image.network(c.image, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: const Color(0xFF2563EB).withValues(alpha: 0.1), child: const Icon(Icons.category, color: Color(0xFF2563EB)))) : Container(color: const Color(0xFF2563EB).withValues(alpha: 0.1), child: const Icon(Icons.category, color: Color(0xFF2563EB))))),
+              Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(12), child: c.image.isNotEmpty ? Image.network(c.image, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: const Color(0xFF2563EB).withOpacity( 0.1), child: const Icon(Icons.category, color: Color(0xFF2563EB)))) : Container(color: const Color(0xFF2563EB).withOpacity( 0.1), child: const Icon(Icons.category, color: Color(0xFF2563EB))))),
               const SizedBox(height: 6),
               Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
               Text('${c.productCount} items', style: TextStyle(color: Colors.grey[600], fontSize: 10)),

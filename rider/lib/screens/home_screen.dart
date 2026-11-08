@@ -527,7 +527,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        CircleAvatar(radius: 40, backgroundColor: const Color(0xFF2563EB).withValues(alpha: 0.1), child: Text(rider?.name.isNotEmpty == true ? rider!.name[0].toUpperCase() : 'R', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)))),
+        CircleAvatar(radius: 40, backgroundColor: const Color(0xFF2563EB).withOpacity( 0.1), child: Text(rider?.name.isNotEmpty == true ? rider!.name[0].toUpperCase() : 'R', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)))),
         const SizedBox(height: 12),
         Center(child: Text(rider?.name ?? '', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
         Center(child: Text(rider?.email ?? '', style: TextStyle(color: Colors.grey[600]))),

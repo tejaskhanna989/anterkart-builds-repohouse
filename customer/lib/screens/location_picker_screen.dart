@@ -235,7 +235,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                   Text(_addr.isEmpty ? 'Tap on map to select location' : _addr, style: TextStyle(color: Colors.grey[700])),
                   if (_picked != null && !_inZone) ...[
                     const SizedBox(height: 8),
-                    Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)), child: Row(children: const [Icon(Icons.block, color: Colors.red, size: 16), SizedBox(width: 6), Expanded(child: Text("Sorry, we don't deliver here yet.", style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w600)))])),
+                    Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red.withOpacity( 0.1), borderRadius: BorderRadius.circular(8)), child: Row(children: const [Icon(Icons.block, color: Colors.red, size: 16), SizedBox(width: 6), Expanded(child: Text("Sorry, we don't deliver here yet.", style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w600)))])),
                   ] else if (_picked != null && _inZone && _zoneName.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text('Delivering to $_zoneName', style: const TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w600)),

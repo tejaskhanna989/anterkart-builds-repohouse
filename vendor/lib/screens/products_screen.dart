@@ -58,7 +58,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: (p.isActive ? Colors.green : Colors.grey).withValues(alpha: 0.12),
+                color: (p.isActive ? Colors.green : Colors.grey).withOpacity( 0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(p.isActive ? 'Live' : 'Off', style: TextStyle(color: p.isActive ? Colors.green : Colors.grey, fontWeight: FontWeight.w700, fontSize: 12)),

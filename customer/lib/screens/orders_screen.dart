@@ -75,7 +75,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                     Text(o.orderNumber, style: const TextStyle(fontWeight: FontWeight.bold)),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(color: _statusColor(o.status).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+                                      decoration: BoxDecoration(color: _statusColor(o.status).withOpacity( 0.1), borderRadius: BorderRadius.circular(6)),
                                       child: Text(_statusText(o.status), style: TextStyle(color: _statusColor(o.status), fontWeight: FontWeight.w600, fontSize: 12)),
                                     ),
                                   ],
