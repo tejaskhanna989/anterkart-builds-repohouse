@@ -1,160 +1,216 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../providers/order_provider.dart';
 import '../models/order.dart';
-import 'order_tracking_screen.dart';
-import 'chat_screen.dart';
+import '../providers/order_provider.dart';
+import '../widgets/order_time.dart';
 
+/// Full order view with timing (placed / updated / completed) and the same
+/// accept → cook → ready actions as the order cards. No dead ends.
 class OrderDetailScreen extends StatefulWidget {
   final int orderId;
-  const OrderDetailScreen({super.key, required this.orderId});
+  final Order? order;
+  const OrderDetailScreen({super.key, required this.orderId, this.order});
+
   @override
   State<OrderDetailScreen> createState() => _OrderDetailScreenState();
 }
 
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Order? _order;
-  bool _loading = true;
+  bool _loading = false;
+  bool _acting = false;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _order = widget.order;
+    _reload();
   }
 
-  Future<void> _load() async {
-    final o = await context.read<OrderProvider>().loadOrderDetail(widget.orderId);
+  Future<void> _reload() async {
+    setState(() => _loading = true);
+    final fresh = await context.read<OrderProvider>().loadDetail(widget.orderId);
     if (!mounted) return;
-    setState(() { _order = o; _loading = false; });
+    setState(() {
+      if (fresh != null) _order = fresh;
+      _loading = false;
+    });
+  }
+
+  Future<void> _advance(String next) async {
+    setState(() => _acting = true);
+    final ok = await context.read<OrderProvider>().updateStatus(widget.orderId, next);
+    if (!mounted) return;
+    setState(() => _acting = false);
+    if (ok) {
+      await _reload();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(next == 'confirmed'
+            ? 'Order accepted'
+            : next == 'preparing'
+                ? 'Cooking started'
+                : next == 'ready'
+                    ? 'Marked ready — rider will pick up'
+                    : next == 'cancelled'
+                        ? 'Order rejected'
+                        : 'Updated to $next'),
+        backgroundColor: Colors.green,
+      ));
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Update failed'), backgroundColor: Colors.red));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return Scaffold(appBar: AppBar(title: const Text('Order Detail')), body: const Center(child: CircularProgressIndicator()));
-    if (_order == null) return Scaffold(appBar: AppBar(title: const Text('Order Detail')), body: const Center(child: Text('Order not found')));
-
-    final o = _order!;
+    final order = _order;
     return Scaffold(
-      appBar: AppBar(title: Text('Order #${o.orderNumber}'), actions: [
-        IconButton(
-          icon: const Icon(Icons.chat_outlined),
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(orderId: o.id, title: 'Rider Chat', myRole: 'customer'))),
-        ),
-      ]),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _section('Status', Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(color: _statusColor(o.status).withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-              child: Text(_statusText(o.status), style: TextStyle(color: _statusColor(o.status), fontWeight: FontWeight.bold)),
-            )),
-            if (o.etaMinutes != null) ...[
-              const SizedBox(height: 8),
-              Text('ETA: ${o.etaMinutes} minutes', style: const TextStyle(color: Color(0xFF2563EB))),
-            ],
-            const SizedBox(height: 16),
-            _section('Items', Column(
-              children: o.items.map((item) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(child: Text('${item.name} x${item.quantity}')),
-                    Text('₹${(item.price * item.quantity).toStringAsFixed(0)}'),
-                  ],
-                ),
-              )).toList(),
-            )),
-            const Divider(height: 32),
-            _priceRow('Subtotal', '₹${o.subtotal.toStringAsFixed(0)}'),
-            _priceRow('Tax', '₹${o.tax.toStringAsFixed(0)}'),
-            _priceRow('Delivery', '₹${o.deliveryFee.toStringAsFixed(0)}'),
-            const Divider(),
-            _priceRow('Total', '₹${o.total.toStringAsFixed(0)}', bold: true),
-            const SizedBox(height: 16),
-            if (o.riderName != null) ...[
-              _section('Rider', Card(child: ListTile(
-                leading: const CircleAvatar(child: Icon(Icons.delivery_dining)),
-                title: Text(o.riderName!),
-                subtitle: Text(o.riderPhone ?? ''),
-              ))),
-              if (o.riderLat != null && o.riderLng != null && (o.status == 'out_for_delivery' || o.status == 'ready')) ...[
-                const SizedBox(height: 12),
-                _buildLiveRiderMap(o),
-              ],
-              if (o.riderName != null || o.riderPhone != null)
-                const SizedBox(height: 12),
-            ],
-            if (o.riderName != null || o.riderPhone != null)
-              _buildRiderInfo(o),
-            if (o.status != 'delivered' && o.status != 'cancelled')
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => OrderTrackingScreen(orderId: o.id))),
-                  child: const Text('Track Order'),
+      appBar: AppBar(title: Text(order != null ? 'Order #${order.orderNumber}' : 'Order #${widget.orderId}')),
+      body: _loading && order == null
+          ? const Center(child: CircularProgressIndicator())
+          : order == null
+              ? const Center(child: Text('Order not found'))
+              : RefreshIndicator(
+                  onRefresh: _reload,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _statusBadge(order.status),
+                        const SizedBox(height: 12),
+                        if (order.pickupCode.isNotEmpty && (order.status == 'ready' || order.status == 'preparing'))
+                          Card(
+                            color: const Color(0xFFFFF7ED),
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Row(children: [
+                                const Icon(Icons.key, color: Color(0xFFF97316)),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                    const Text('Handover code', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                    Text(order.pickupCode, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: 6)),
+                                  ]),
+                                ),
+                                const Text('Show at\ncounter', textAlign: TextAlign.right, style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              ]),
+                            ),
+                          ),
+                        ),
+                        if (order.pickupCode.isNotEmpty && (order.status == 'ready' || order.status == 'preparing')) const SizedBox(height: 4),
+                        if (order.deliveryBoyId != 0 && order.status == 'ready')
+                          Card(
+                            color: order.riderArrivedAt.isNotEmpty ? const Color(0xFFECFDF5) : null,
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Row(children: [
+                                Icon(Icons.delivery_dining, color: order.riderArrivedAt.isNotEmpty ? const Color(0xFF10B981) : Colors.grey),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    order.riderArrivedAt.isNotEmpty ? 'Rider is waiting at the counter — hand over the food.' : 'Rider secured and on the way to your store.',
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ]),
+                            ),
+                          ),
+                        if (order.deliveryBoyId != 0 && order.status == 'ready') const SizedBox(height: 4),
+                        // Live rider tracking map
+                        if (order.deliveryBoyId != 0 &&
+                            (order.riderLat != null && order.riderLng != null) &&
+                            (order.status == 'out_for_delivery' || order.status == 'ready'))
+                          _buildLiveRiderMap(),
+                        // Timing card: placed / elapsed / updated / completed.
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              children: [
+                                _timeRow(Icons.schedule, 'Placed', '${formatClock(order.createdAt)}${elapsedSince(order.createdAt).isEmpty ? '' : ' · ${elapsedSince(order.createdAt)}'}'),
+                                if (order.updatedAt.isNotEmpty && order.updatedAt != order.createdAt)
+                                  _timeRow(
+                                    order.status == 'delivered' ? Icons.check_circle : Icons.update,
+                                    order.status == 'delivered'
+                                        ? 'Completed'
+                                        : order.status == 'cancelled'
+                                            ? 'Cancelled'
+                                            : 'Last update',
+                                        formatClock(order.updatedAt),
+                                  ),
+                                if (order.etaMinutes > 0) _timeRow(Icons.delivery_dining, 'ETA', '${order.etaMinutes} min'),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Card(
+                          child: ListTile(
+                            leading: const CircleAvatar(child: Icon(Icons.person)),
+                            title: Text(order.customerName ?? 'Customer'),
+                            subtitle: Text(order.customerPhone ?? ''),
+                            trailing: order.customerPhone != null
+                                ? IconButton(icon: const Icon(Icons.phone, color: Colors.green), onPressed: () => launchUrl(Uri.parse('tel:${order.customerPhone}')))
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Card(
+                          child: ListTile(
+                            leading: const Icon(Icons.location_on, color: Colors.red),
+                            title: const Text('Delivery Address'),
+                            subtitle: Text(order.address ?? 'No address'),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.directions, color: Color(0xFF2563EB)),
+                              onPressed: () {
+                                final addr = Uri.encodeComponent(order.address ?? '');
+                                launchUrl(Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$addr'));
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text('Items', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        ...order.items.map((item) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                                Text('${item.name} x${item.quantity}'),
+                                Text('₹${(item.price * item.quantity).toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                              ]),
+                            )),
+                        const Divider(height: 24),
+                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                          const Text('Total', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          Text('₹${order.total.toStringAsFixed(0)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
+                        ]),
+                        const SizedBox(height: 8),
+                        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                          const Text('Payment'),
+                          Chip(label: Text(order.paymentMethod, style: const TextStyle(fontSize: 12))),
+                        ]),
+                        const SizedBox(height: 16),
+                        ..._actionButtons(order),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _section(String title, Widget child) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 8),
-      child,
-    ]);
-  }
-
-  Widget _priceRow(String label, String value, {bool bold = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text(label, style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal, color: bold ? Colors.black : Colors.grey)),
-        Text(value, style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.w600, color: bold ? const Color(0xFF2563EB) : Colors.black)),
-      ]),
-    );
-  }
-
-  Color _statusColor(String s) {
-    switch (s) {
-      case 'pending': return Colors.orange;
-      case 'confirmed': return Colors.blue;
-      case 'preparing': return Colors.purple;
-      case 'out_for_delivery': return const Color(0xFFF97316);
-      case 'delivered': return const Color(0xFF10B981);
-      case 'cancelled': return Colors.red;
-      default: return Colors.grey;
-    }
-  }
-
-  String _statusText(String s) {
-    switch (s) {
-      case 'pending': return 'Pending';
-      case 'confirmed': return 'Confirmed';
-      case 'preparing': return 'Preparing';
-      case 'out_for_delivery': return 'On the Way';
-      case 'delivered': return 'Delivered';
-      case 'cancelled': return 'Cancelled';
-      default: return s;
-    }
-  }
-
-  Widget _buildLiveRiderMap(Order o) {
-    final LatLng storeLatLng = LatLng(24.853545, 74.620191);
-    final LatLng riderLatLng = LatLng(o.riderLat!, o.riderLng!);
-    final LatLng destinationLatLng = LatLng(24.8793635, 74.6351433);
+  Widget _buildLiveRiderMap() {
+    final order = _order!;
+    final LatLng storeLatLng = LatLng(24.853545, 74.620191); // Store location
+    final LatLng riderLatLng = LatLng(order.riderLat!, order.riderLng!);
+    final LatLng destinationLatLng = LatLng(24.8793635, 74.6351433); // Default destination
 
     return Card(
       margin: const EdgeInsets.only(top: 8),
@@ -172,7 +228,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withOpacity(0.1),
+                    color: const Color(0xFF10B981).withOpacity( 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -196,7 +252,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 children: [
                   TileLayer(
                     urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.otamzo.store',
+                    userAgentPackageName: 'com.otamzo.vendor',
                   ),
                   MarkerLayer(
                     markers: [
@@ -208,82 +264,241 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           decoration: BoxDecoration(
                             color: const Color(0xFF10B981),
                             shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))],
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity( 0.3), blurRadius: 4, offset: const Offset(0, 2))],
                           ),
                           child: const Icon(Icons.motorcycle, color: Colors.white, size: 24),
                         ),
                       ),
                       Marker(
-                        point: LatLng(24.853545, 74.620191),
+                        point: storeLatLng,
                         width: 50,
                         height: 50,
                         child: Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFF2563EB),
                             shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))],
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity( 0.3), blurRadius: 4, offset: const Offset(0, 2))],
                           ),
                           child: const Icon(Icons.store, color: Colors.white, size: 24),
                         ),
                       ),
                       Marker(
-                        point: LatLng(24.8793635, 74.6351433),
+                        point: destinationLatLng,
                         width: 50,
                         height: 50,
                         child: Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFFEF4444),
                             shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))],
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity( 0.3), blurRadius: 4, offset: const Offset(0, 2))],
                           ),
                           child: const Icon(Icons.home, color: Colors.white, size: 24),
                         ),
                       ),
                     ],
                   ),
+                ),
+                if (order.riderName != null || order.riderPhone != null) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    color: const Color(0xFFF0FDF4),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: const Color(0xFF10B981),
+                            child: const Icon(Icons.person, color: Colors.white),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  order.riderName ?? 'Rider',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                                if (order.riderPhone != null)
+                                  Text('📞 ${order.riderPhone}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                              ],
+                            ),
+                          ),
+                          if (order.riderPhone != null)
+                            IconButton(
+                              icon: const Icon(Icons.phone, color: Colors.green),
+                              onPressed: () => launchUrl(Uri.parse('tel:${order.riderPhone}')),
+                              tooltip: 'Call rider',
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
-              ),
+              ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statusBadge(String status) {
+    Color color;
+    IconData icon;
+    String label;
+    switch (status) {
+      case 'pending':
+        color = Colors.orange;
+        icon = Icons.schedule;
+        label = 'Pending';
+        break;
+      case 'confirmed':
+        color = Colors.blue;
+        icon = Icons.check_circle;
+        label = 'Confirmed';
+        break;
+      case 'preparing':
+        color = Colors.orange;
+        icon = Icons.restaurant;
+        label = 'Preparing';
+        break;
+      case 'ready':
+        color = Colors.purple;
+        icon = Icons.inventory;
+        label = 'Ready';
+        break;
+      case 'out_for_delivery':
+        color = Colors.blue;
+        icon = Icons.local_shipping;
+        label = 'Out for Delivery';
+        break;
+      case 'delivered':
+        color = Colors.green;
+        icon = Icons.check_circle;
+        label = 'Delivered';
+        break;
+      case 'cancelled':
+        color = Colors.red;
+        icon = Icons.cancel;
+        label = 'Cancelled';
+        break;
+      default:
+        color = Colors.grey;
+        icon = Icons.help;
+        label = status;
+    }
+    return Card(
+      color: color.withOpacity( 0.1),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 28),
+            const SizedBox(width: 12),
+            Text(label, style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildRiderInfo(Order o) {
-    return Card(
-      color: const Color(0xFFF0FDF4),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: const Color(0xFF10B981),
-              child: const Icon(Icons.person, color: Colors.white),
+  String formatClock(String iso) {
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  String elapsedSince(String iso) {
+    try {
+      final dt = DateTime.parse(iso);
+      final diff = DateTime.now().difference(dt.toLocal());
+      if (diff.inHours > 0) return '${diff.inHours}h ${diff.inMinutes % 60}m ago';
+      if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
+      return 'Just now';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  String formatClock(String iso) {
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  String elapsedSince(String iso) {
+    try {
+      final dt = DateTime.parse(iso);
+      final diff = DateTime.now().difference(dt.toLocal());
+      if (diff.inHours > 0) return '${diff.inHours}h ${diff.inMinutes % 60}m ago';
+      if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
+      return 'Just now';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  List<Widget> _actionButtons(Order order) {
+    if (_acting) return [const Center(child: CircularProgressIndicator())];
+    switch (order.status) {
+      case 'pending':
+        return [
+          Row(children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.close),
+                label: const Text('Reject'),
+                onPressed: () => _advance('cancelled'),
+                style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    o.riderName ?? 'Rider',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                  if (o.riderPhone != null)
-                    Text('📞 ${o.riderPhone}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                ],
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.check),
+                label: const Text('Confirm'),
+                onPressed: () => _advance('confirmed'),
               ),
             ),
-            if (o.riderPhone != null)
-              IconButton(
-                icon: const Icon(Icons.phone, color: Colors.green),
-                onPressed: () => launchUrl(Uri.parse('tel:${o.riderPhone}')),
-                tooltip: 'Call rider',
-              ),
           ],
-        ),
-      ),
-    );
+        case 'confirmed':
+          return [
+            ElevatedButton.icon(
+              icon: const Icon(Icons.restaurant),
+              label: const Text('Start Cooking'),
+              onPressed: () => _advance('preparing'),
+            ),
+          ],
+        case 'preparing':
+          return [
+            ElevatedButton.icon(
+              icon: const Icon(Icons.check_circle),
+              label: const Text('Mark Ready'),
+              onPressed: () => _advance('ready'),
+            ),
+          ],
+        case 'ready':
+          return [
+            ElevatedButton.icon(
+              icon: const Icon(Icons.assignment_return),
+              label: const Text('Mark Picked Up'),
+              onPressed: () => _advance('out_for_delivery'),
+            ),
+          ],
+        default:
+          return [];
+    }
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 }
