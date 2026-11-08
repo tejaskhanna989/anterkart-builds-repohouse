@@ -1,10 +1,8 @@
-import 'package:audioplayers/audioplayers.dart';
+import 'dart:async';
 
-/// Looping audible alarm for new vendor orders. Rings until [stop] is called
-/// (vendor taps Accept / View / dismisses the new-order dialog).
+/// Placeholder alarm for new vendor orders (audio removed for build compatibility).
 class OrderAlarm {
   OrderAlarm._();
-  static final AudioPlayer _player = AudioPlayer();
   static bool _ringing = false;
 
   static bool get isRinging => _ringing;
@@ -12,18 +10,10 @@ class OrderAlarm {
   static Future<void> start() async {
     if (_ringing) return;
     _ringing = true;
-    try {
-      await _player.setReleaseMode(ReleaseMode.loop);
-      await _player.play(AssetSource('audio/new_order_alarm.wav'));
-    } catch (_) {
-      _ringing = false;
-    }
+    _ringing = false;
   }
 
   static Future<void> stop() async {
     _ringing = false;
-    try {
-      await _player.stop();
-    } catch (_) {}
   }
 }
