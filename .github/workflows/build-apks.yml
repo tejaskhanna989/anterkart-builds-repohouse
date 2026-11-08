@@ -119,8 +119,7 @@ jobs:
             $wrapperProps = "$proj\android\gradle\wrapper\gradle-wrapper.properties"
             if (Test-Path $wrapperProps) {
               $content = Get-Content $wrapperProps -Raw
-              # Replace GitHub distribution URL with services.gradle.org (more reliable)
-              $content = $content -replace 'https://github\.com/gradle/gradle-distributions/releases/download/v([0-9.]+)/gradle-([0-9.]+)-all\.zip', 'https://services.gradle.org/distributions/gradle-$2-all.zip'
+              # Force distributionUrl to services.gradle.org (handles any existing format)
               $content = $content -replace 'distributionUrl=.*', 'distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-all.zip'
               Set-Content $wrapperProps $content
               Write-Host "Fixed $wrapperProps"
