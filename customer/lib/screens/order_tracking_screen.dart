@@ -90,7 +90,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     final timeline = (_data['timeline'] as List?) ?? [];
     final riderPos = _riderLatLng();
     final destPos = _destLatLng();
-    final center = riderPos ?? destPos ?? const LatLng(26.85, 80.95);
+    final center = riderPos ?? destPos ?? LatLng(26.85, 80.95);
     return Scaffold(
       appBar: AppBar(title: const Text('Track Order'), actions: [
         IconButton(

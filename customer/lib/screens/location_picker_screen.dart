@@ -156,7 +156,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
         children: [
           FlutterMap(
             mapController: _mapController,
-            options: MapOptions(initialCenter: _picked ?? const LatLng(26.8467, 80.9462), initialZoom: _picked != null ? 15 : 5, onTap: (_, p) { setState(() => _picked = p); _reverse(p); }),
+            options: MapOptions(initialCenter: _picked ?? LatLng(26.8467, 80.9462), initialZoom: _picked != null ? 15 : 5, onTap: (_, p) { setState(() => _picked = p); _reverse(p); }),
             children: [
               TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.otamzo.store'),
               if (_picked != null) MarkerLayer(markers: [Marker(point: _picked!, width: 40, height: 40, child: const Icon(Icons.location_on, color: Color(0xFF2563EB), size: 40))]),

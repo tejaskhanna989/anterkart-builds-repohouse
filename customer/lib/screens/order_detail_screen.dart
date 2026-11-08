@@ -149,9 +149,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Widget _buildLiveRiderMap(Order o) {
-    final LatLng storeLatLng = const LatLng(24.853545, 74.620191); // Store location
+    final LatLng storeLatLng = LatLng(24.853545, 74.620191); // Store location
     final LatLng riderLatLng = LatLng(o.riderLat!, o.riderLng!);
-    final LatLng destinationLatLng = const LatLng(24.8793635, 74.6351433); // Default destination
+    final LatLng destinationLatLng = LatLng(24.8793635, 74.6351433); // Default destination
 
     return Card(
       margin: const EdgeInsets.only(top: 8),
