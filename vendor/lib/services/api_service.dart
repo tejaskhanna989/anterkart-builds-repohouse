@@ -1,33 +1,20 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 
 class ApiService {
   static String? _token;
 
   static Future<String?> getToken() async {
-    if (_token != null) return _token;
-    final prefs = await SharedPreferences.getInstance();
-    _token = prefs.getString('vendor_token');
     return _token;
   }
 
   static Future<void> setToken(String? token) async {
     _token = token;
-    final prefs = await SharedPreferences.getInstance();
-    if (token != null) {
-      await prefs.setString('vendor_token', token);
-    } else {
-      await prefs.remove('vendor_token');
-    }
   }
 
   static Future<void> clearToken() async {
     _token = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('vendor_token');
-    await prefs.remove('vendor_data');
   }
 
   static Map<String, String> _headers({String? token}) {

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/vendor.dart';
 import '../services/api_service.dart';
 import '../services/onesignal_service.dart';
@@ -16,15 +15,8 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    _token = prefs.getString('vendor_token');
-    final vData = prefs.getString('vendor_data');
-    if (_token != null && vData != null) {
-      try {
-        _vendor = Vendor.fromJson(jsonDecode(vData));
-        OneSignalService.loginAsVendor(_vendor!.tenantId);
-      } catch (_) {}
-    }
+    _token = null;
+    _vendor = null;
     notifyListeners();
   }
 
@@ -38,8 +30,6 @@ class AuthProvider extends ChangeNotifier {
       _vendor = Vendor.fromJson(data['vendor'], data['tenant']);
       _token = data['token'];
       await ApiService.setToken(_token);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('vendor_data', jsonEncode(_vendor!.toJson()));
       OneSignalService.loginAsVendor(_vendor!.tenantId);
       await OneSignalService.requestPermission();
       notifyListeners();
