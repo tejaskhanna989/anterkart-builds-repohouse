@@ -199,38 +199,83 @@ jobs:
           DEPLOY_PATH: /home/u881842192/otamzo-download-page
         shell: pwsh
         run: |
-          # Download PuTTY's pscp.exe (reliable, supports -pw for password auth)
+          # Download PuTTY's pscp.exe and plink.exe (reliable, supports -pw for password auth)
           $pscpUrl = "https://the.earth.li/~sgtatham/putty/latest/w64/pscp.exe"
           $pscpPath = "C:\Program Files\putty\pscp.exe"
           $plinkPath = "C:\Program Files\putty\plink.exe"
           New-Item -ItemType Directory -Force -Path "C:\Program Files\putty"
           Invoke-WebRequest -Uri $pscpUrl -OutFile $pscpPath
-          # Also get plink for ssh commands
           Invoke-WebRequest -Uri "https://the.earth.li/~sgtatham/putty/latest/w64/plink.exe" -OutFile $plinkPath
           $env:PATH += ";C:\Program Files\putty"
           
-          # Verify pscp works
+          # Verify tools work
           & $pscpPath -V
+          & $plinkPath -V
+          
+          # Wait for SSH to be ready with retries
+          $maxRetries = 5
+          $retryDelay = 10
+          for ($i = 1; $i -le $maxRetries; $i++) {
+            Write-Host "Attempt $i/$maxRetries: Testing SSH connection..."
+            $testResult = & $plinkPath -ssh -P $env:SSH_PORT -pw "${SSH_PASSWORD}" -batch ${SSH_USER}@${SSH_HOST} "echo 'SSH OK'" 2>&1
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "SSH connection successful!"
+              break
+            }
+            Write-Host "SSH not ready yet: $testResult"
+            if ($i -lt $maxRetries) {
+              Write-Host "Waiting $retryDelay seconds before retry..."
+              Start-Sleep -Seconds $retryDelay
+            }
+          }
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "SSH connection failed after $maxRetries attempts"
+            exit 1
+          }
           
           # Create timestamped release directory
           $TIMESTAMP = Get-Date -Format "yyyyMMdd-HHmmss"
           $RELEASE_DIR = "${DEPLOY_PATH}/release-${TIMESTAMP}"
           
-          echo "Creating release directory on VPS..."
-          & $plinkPath -ssh -P 65002 -pw "${SSH_PASSWORD}" -batch ${SSH_USER}@${SSH_HOST} "mkdir -p ${RELEASE_DIR}/{customer,vendor,rider}"
+          Write-Host "Creating release directory on VPS..."
+          & $plinkPath -ssh -P $env:SSH_PORT -pw "${SSH_PASSWORD}" -batch ${SSH_USER}@${SSH_HOST} "mkdir -p ${RELEASE_DIR}/{customer,vendor,rider}"
           
-          echo "Uploading Customer APKs..."
-          & $pscpPath -P 65002 -pw "${SSH_PASSWORD}" -batch -r customer_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/customer/
+          # Function to upload a directory using pscp (Windows-compatible)
+          function Upload-Directory {
+            param($localPath, $remotePath)
+            Write-Host "Uploading $localPath to $remotePath..."
+            
+            # Create remote directory first
+            & $plinkPath -ssh -P $env:SSH_PORT -pw "${SSH_PASSWORD}" -batch ${SSH_USER}@${SSH_HOST} "mkdir -p ${remotePath}"
+            
+            # Get all files recursively and upload each
+            $files = Get-ChildItem -Path $localPath -Recurse -File
+            foreach ($file in $files) {
+              $relativePath = $file.FullName.Substring($localPath.Length + 1).Replace('\', '/')
+              $remoteFile = "${remotePath}/${relativePath}"
+              $remoteDir = Split-Path $remoteFile -Parent
+              
+              # Ensure remote directory exists
+              & $plinkPath -ssh -P $env:SSH_PORT -pw "${SSH_PASSWORD}" -batch ${SSH_USER}@${SSH_HOST} "mkdir -p ${remoteDir}" 2>$null
+              
+              # Upload file
+              & $pscpPath -P $env:SSH_PORT -pw "${SSH_PASSWORD}" -batch "${file.FullName}" ${SSH_USER}@${SSH_HOST}:${remoteFile}
+              if ($LASTEXITCODE -ne 0) {
+                Write-Error "Failed to upload $relativePath"
+                exit 1
+              }
+            }
+            Write-Host "Uploaded $($files.Count) files to $remotePath"
+          }
           
-          echo "Uploading Vendor APKs..."
-          & $pscpPath -P 65002 -pw "${SSH_PASSWORD}" -batch -r vendor_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/vendor/
-          
-          echo "Uploading Rider APKs..."
-          & $pscpPath -P 65002 -pw "${SSH_PASSWORD}" -batch -r rider_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/rider/
+          # Upload each app's APKs
+          Upload-Directory "customer_new/build/app/outputs/flutter-apk" "${DEPLOY_PATH}/customer"
+          Upload-Directory "vendor_new/build/app/outputs/flutter-apk" "${DEPLOY_PATH}/vendor"
+          Upload-Directory "rider_new/build/app/outputs/flutter-apk" "${DEPLOY_PATH}/rider"
           
           # Also copy to timestamped release directory
-          & $pscpPath -P 65002 -pw "${SSH_PASSWORD}" -batch -r customer_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/releases/${TIMESTAMP}/customer/
-          & $pscpPath -P 65002 -pw "${SSH_PASSWORD}" -batch -r vendor_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/releases/${TIMESTAMP}/vendor/
-          & $pscpPath -P 65002 -pw "${SSH_PASSWORD}" -batch -r rider_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/releases/${TIMESTAMP}/rider/
+          Upload-Directory "customer_new/build/app/outputs/flutter-apk" "${DEPLOY_PATH}/releases/${TIMESTAMP}/customer"
+          Upload-Directory "vendor_new/build/app/outputs/flutter-apk" "${DEPLOY_PATH}/releases/${TIMESTAMP}/vendor"
+          Upload-Directory "rider_new/build/app/outputs/flutter-apk" "${DEPLOY_PATH}/releases/${TIMESTAMP}/rider"
           
-          echo "✅ APKs deployed to otamzo VPS download page"
+          Write-Host "✅ APKs deployed to otamzo VPS download page"
