@@ -9,9 +9,9 @@ def fix_kotlin_version(project_dir):
     print(f'Project dir absolute: {os.path.abspath(project_dir)}', flush=True)
     print(f'Project dir exists: {os.path.exists(project_dir)}', flush=True)
     
-    # Use Kotlin 1.9.10 with AGP 8.1.0 for compatibility
-    KOTLIN_VERSION = '1.9.10'
-    AGP_VERSION = '8.1.0'
+    # Use Kotlin 1.7.10 with AGP 7.4.2 - compatible with Flutter plugin's internal kotlin-android 1.7.10
+    KOTLIN_VERSION = '1.7.10'
+    AGP_VERSION = '7.4.2'
     
     # Fix ROOT build.gradle (project level) - add buildscript block
     root_build_gradle = os.path.join(project_dir, 'android', 'build.gradle')
@@ -57,7 +57,7 @@ def fix_kotlin_version(project_dir):
 
 '''
             content = buildscript_block + content
-            print('ROOT: Added buildscript block with Kotlin 1.9.10', flush=True)
+            print('ROOT: Added buildscript block with Kotlin 1.7.10', flush=True)
         
         with open(root_build_gradle, 'w') as f:
             f.write(content)
