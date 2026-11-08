@@ -111,9 +111,10 @@ def fix_kotlin_version(project_dir):
         )
         
         # Fix minSdkVersion to 21 (required by OneSignal library)
+        # Match both "minSdk = flutter.minSdkVersion" and "minSdkVersion flutter.minSdkVersion"
         content = re.sub(
-            r'minSdk\s*=\s*flutter\.minSdkVersion',
-            'minSdk = 21',
+            r'minSdk(?:Version)?\s+(?:=)?\s*flutter\.minSdkVersion',
+            'minSdkVersion 21',
             content
         )
         
