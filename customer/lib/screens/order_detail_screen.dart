@@ -51,7 +51,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           children: [
             _section('Status', Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(color: _statusColor(o.status).withOpacity( 0.1), borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(color: _statusColor(o.status).withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
               child: Text(_statusText(o.status), style: TextStyle(color: _statusColor(o.status), fontWeight: FontWeight.bold)),
             )),
             if (o.etaMinutes != null) ...[
@@ -88,8 +88,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 const SizedBox(height: 12),
                 _buildLiveRiderMap(o),
               ],
-              const SizedBox(height: 12),
+              if (o.riderName != null || o.riderPhone != null)
+                const SizedBox(height: 12),
             ],
+            if (o.riderName != null || o.riderPhone != null)
+              _buildRiderInfo(o),
             if (o.status != 'delivered' && o.status != 'cancelled')
               SizedBox(
                 width: double.infinity,
@@ -149,9 +152,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Widget _buildLiveRiderMap(Order o) {
-    final LatLng storeLatLng = LatLng(24.853545, 74.620191); // Store location
+    final LatLng storeLatLng = LatLng(24.853545, 74.620191);
     final LatLng riderLatLng = LatLng(o.riderLat!, o.riderLng!);
-    final LatLng destinationLatLng = LatLng(24.8793635, 74.6351433); // Default destination
+    final LatLng destinationLatLng = LatLng(24.8793635, 74.6351433);
 
     return Card(
       margin: const EdgeInsets.only(top: 8),
@@ -169,7 +172,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withOpacity( 0.1),
+                    color: const Color(0xFF10B981).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -205,81 +208,82 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           decoration: BoxDecoration(
                             color: const Color(0xFF10B981),
                             shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity( 0.3), blurRadius: 4, offset: const Offset(0, 2))],
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))],
                           ),
                           child: const Icon(Icons.motorcycle, color: Colors.white, size: 24),
                         ),
                       ),
                       Marker(
-                        point: LatLng(24.853545, 74.620191), // Store location
+                        point: LatLng(24.853545, 74.620191),
                         width: 50,
                         height: 50,
                         child: Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFF2563EB),
                             shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity( 0.3), blurRadius: 4, offset: const Offset(0, 2))],
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))],
                           ),
                           child: const Icon(Icons.store, color: Colors.white, size: 24),
                         ),
                       ),
                       Marker(
-                        point: LatLng(24.8793635, 74.6351433), // Default destination
+                        point: LatLng(24.8793635, 74.6351433),
                         width: 50,
                         height: 50,
                         child: Container(
                           decoration: BoxDecoration(
                             color: const Color(0xFFEF4444),
                             shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity( 0.3), blurRadius: 4, offset: const Offset(0, 2))],
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))],
                           ),
                           child: const Icon(Icons.home, color: Colors.white, size: 24),
                         ),
                       ),
                     ],
                   ),
-                ),
-                if (o.riderName != null || o.riderPhone != null) ...[
-                  const SizedBox(height: 12),
-                  Card(
-                    color: const Color(0xFFF0FDF4),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            backgroundColor: const Color(0xFF10B981),
-                            child: const Icon(Icons.person, color: Colors.white),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  o.riderName ?? 'Rider',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                ),
-                                if (o.riderPhone != null)
-                                  Text('📞 ${o.riderPhone}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                              ],
-                            ),
-                          ),
-                          if (o.riderPhone != null)
-                            IconButton(
-                              icon: const Icon(Icons.phone, color: Colors.green),
-                              onPressed: () => launchUrl(Uri.parse('tel:${o.riderPhone}')),
-                              tooltip: 'Call rider',
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+
+  Widget _buildRiderInfo(Order o) {
+    return Card(
+      color: const Color(0xFFF0FDF4),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: const Color(0xFF10B981),
+              child: const Icon(Icons.person, color: Colors.white),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    o.riderName ?? 'Rider',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  if (o.riderPhone != null)
+                    Text('📞 ${o.riderPhone}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                ],
+              ),
+            ),
+            if (o.riderPhone != null)
+              IconButton(
+                icon: const Icon(Icons.phone, color: Colors.green),
+                onPressed: () => launchUrl(Uri.parse('tel:${o.riderPhone}')),
+                tooltip: 'Call rider',
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
