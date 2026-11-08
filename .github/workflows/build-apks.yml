@@ -195,35 +195,38 @@ jobs:
           DEPLOY_PATH: /home/u881842192/otamzo-download-page
         shell: pwsh
         run: |
-          # Install sshpass for password-based SSH (download Windows binary directly)
-          $sshpassUrl = "https://github.com/veggiemonk/sshpass-windows/releases/download/1.09/sshpass.exe"
-          $sshpassPath = "C:\Program Files\sshpass\sshpass.exe"
-          New-Item -ItemType Directory -Force -Path "C:\Program Files\sshpass"
-          Invoke-WebRequest -Uri $sshpassUrl -OutFile $sshpassPath
-          $env:PATH += ";C:\Program Files\sshpass"
+          # Download PuTTY's pscp.exe (reliable, supports -pw for password auth)
+          $pscpUrl = "https://the.earth.li/~sgtatham/putty/latest/w64/pscp.exe"
+          $pscpPath = "C:\Program Files\putty\pscp.exe"
+          $plinkPath = "C:\Program Files\putty\plink.exe"
+          New-Item -ItemType Directory -Force -Path "C:\Program Files\putty"
+          Invoke-WebRequest -Uri $pscpUrl -OutFile $pscpPath
+          # Also get plink for ssh commands
+          Invoke-WebRequest -Uri "https://the.earth.li/~sgtatham/putty/latest/w64/plink.exe" -OutFile $plinkPath
+          $env:PATH += ";C:\Program Files\putty"
           
-          # Verify sshpass works
-          & $sshpassPath -V
+          # Verify pscp works
+          & $pscpPath -V
           
           # Create timestamped release directory
           $TIMESTAMP = Get-Date -Format "yyyyMMdd-HHmmss"
           $RELEASE_DIR = "${DEPLOY_PATH}/release-${TIMESTAMP}"
           
           echo "Creating release directory on VPS..."
-          & $sshpassPath -p "${SSH_PASSWORD}" ssh -o StrictHostKeyChecking=no -p 65002 ${SSH_USER}@${SSH_HOST} "mkdir -p ${RELEASE_DIR}/{customer,vendor,rider}"
+          & $plinkPath -ssh -P 65002 -pw "${SSH_PASSWORD}" -batch ${SSH_USER}@${SSH_HOST} "mkdir -p ${RELEASE_DIR}/{customer,vendor,rider}"
           
           echo "Uploading Customer APKs..."
-          & $sshpassPath -p "${SSH_PASSWORD}" scp -P 65002 -o StrictHostKeyChecking=no -r customer_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/customer/
+          & $pscpPath -P 65002 -pw "${SSH_PASSWORD}" -batch -r customer_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/customer/
           
           echo "Uploading Vendor APKs..."
-          & $sshpassPath -p "${SSH_PASSWORD}" scp -P 65002 -o StrictHostKeyChecking=no -r vendor_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/vendor/
+          & $pscpPath -P 65002 -pw "${SSH_PASSWORD}" -batch -r vendor_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/vendor/
           
           echo "Uploading Rider APKs..."
-          & $sshpassPath -p "${SSH_PASSWORD}" scp -P 65002 -o StrictHostKeyChecking=no -r rider_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/rider/
+          & $pscpPath -P 65002 -pw "${SSH_PASSWORD}" -batch -r rider_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/rider/
           
           # Also copy to timestamped release directory
-          & $sshpassPath -p "${SSH_PASSWORD}" scp -P 65002 -o StrictHostKeyChecking=no -r customer_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/releases/${TIMESTAMP}/customer/
-          & $sshpassPath -p "${SSH_PASSWORD}" scp -P 65002 -o StrictHostKeyChecking=no -r vendor_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/releases/${TIMESTAMP}/vendor/
-          & $sshpassPath -p "${SSH_PASSWORD}" scp -P 65002 -o StrictHostKeyChecking=no -r rider_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/releases/${TIMESTAMP}/rider/
+          & $pscpPath -P 65002 -pw "${SSH_PASSWORD}" -batch -r customer_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/releases/${TIMESTAMP}/customer/
+          & $pscpPath -P 65002 -pw "${SSH_PASSWORD}" -batch -r vendor_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/releases/${TIMESTAMP}/vendor/
+          & $pscpPath -P 65002 -pw "${SSH_PASSWORD}" -batch -r rider_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/releases/${TIMESTAMP}/rider/
           
           echo "✅ APKs deployed to otamzo VPS download page"
