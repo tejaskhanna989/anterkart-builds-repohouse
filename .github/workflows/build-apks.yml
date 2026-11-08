@@ -19,7 +19,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.0'
+          flutter-version: '3.19.6'
           channel: 'stable'
 
       - name: Set up Java 17
@@ -36,7 +36,7 @@ jobs:
       - name: Patch Flutter SDK gradle plugin (fix Groovy QName/XmlParser)
         shell: pwsh
         run: |
-          $flutterGroovy = "C:\hostedtoolcache\windows\flutter\stable-3.22.0-x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy"
+          $flutterGroovy = "C:\hostedtoolcache\windows\flutter\stable-3.19.6-x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy"
           if (Test-Path $flutterGroovy) {
             Write-Host "Found flutter.groovy at: $flutterGroovy"
             Copy-Item "$flutterGroovy" "$flutterGroovy.backup"
@@ -47,8 +47,8 @@ jobs:
             }
             Write-Host "Patched flutter.groovy successfully"
             Write-Host "Checking for remaining QName/XmlParser references:"
-            Select-String -Pattern "QName|XmlParser" -Path "C:\hostedtoolcache\windows\flutter\stable-3.22.0-x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy" | ForEach-Object { Write-Host "$($_.LineNumber): $($_.Line)" } | Out-Host
-            if (-not (Select-String -Pattern "QName|XmlParser" -Path "C:\hostedtoolcache\windows\flutter\stable-3.22.0-x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy")) {
+            Select-String -Pattern "QName|XmlParser" -Path "C:\hostedtoolcache\windows\flutter\stable-3.19.6-x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy" | ForEach-Object { Write-Host "$($_.LineNumber): $($_.Line)" } | Out-Host
+            if (-not (Select-String -Pattern "QName|XmlParser" -Path "C:\hostedtoolcache\windows\flutter\stable-3.19.6-x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy")) {
               Write-Host "No references found"
             }
           } else {
