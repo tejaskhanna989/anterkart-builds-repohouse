@@ -45,11 +45,6 @@ class _HomeScreenState extends State<HomeScreen> {
       if (context.read<AuthProvider>().isLoggedIn) {
         context.read<NotificationProvider>().load();
       }
-      // Show push popups when the app is open (foreground).
-      OneSignalService.addListeners();
-      OneSignalService.onForegroundPush = () {
-        if (mounted) setState(() {});
-      };
     });
   }
 

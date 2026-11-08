@@ -11,7 +11,6 @@ class OneSignalService {
   OneSignalService._();
 
   static bool get isEnabled => ApiConfig.onesignalAppId.isNotEmpty;
-  static void Function()? onForegroundPush;
 
   /// Initialize the SDK. Safe to call when push is disabled (no-op).
   /// Must run before any other OneSignal call.
@@ -20,18 +19,6 @@ class OneSignalService {
     try {
       OneSignal.Debug.setLogLevel(OSLogLevel.none);
       OneSignal.initialize(ApiConfig.onesignalAppId);
-      OneSignal.Notifications.addListener((notification) {
-        onForegroundPush?.call();
-      });
-    } catch (_) {}
-  }
-
-  static void addListeners() {
-    if (!isEnabled) return;
-    try {
-      OneSignal.Notifications.addListener((notification) {
-        onForegroundPush?.call();
-      });
     } catch (_) {}
   }
 
