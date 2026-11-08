@@ -177,29 +177,30 @@ jobs:
           SSH_USER: u881842192
           SSH_PASSWORD: ${{ secrets.OTAMZO_SSH_PASSWORD }}
           DEPLOY_PATH: /home/u881842192/otamzo-download-page
+        shell: pwsh
         run: |
-          # Install sshpass for password-based SSH
-          sudo apt-get update && sudo apt-get install -y sshpass
+          # Install sshpass for password-based SSH (chocolatey on Windows runner)
+          choco install sshpass -y
           
           # Create timestamped release directory
-          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-          RELEASE_DIR="${DEPLOY_PATH}/release-${TIMESTAMP}"
+          $TIMESTAMP = Get-Date -Format "yyyyMMdd-HHmmss"
+          $RELEASE_DIR = "${DEPLOY_PATH}/release-${TIMESTAMP}"
           
           echo "Creating release directory on VPS..."
-          sshpass -p "${SSH_PASSWORD}" ssh -o StrictHostKeyChecking=no -p 65002 u881842192@91.108.107.50 "mkdir -p ${RELEASE_DIR}/{customer,vendor,rider}"
+          sshpass -p "${SSH_PASSWORD}" ssh -o StrictHostKeyChecking=no -p 65002 ${SSH_USER}@${SSH_HOST} "mkdir -p ${RELEASE_DIR}/{customer,vendor,rider}"
           
           echo "Uploading Customer APKs..."
-          sshpass -p "${SSH_PASSWORD}" scp -P 65002 -o StrictHostKeyChecking=no -r customer_new/build/app/outputs/flutter-apk/* u881842192@91.108.107.50:${DEPLOY_PATH}/customer/
+          sshpass -p "${SSH_PASSWORD}" scp -P 65002 -o StrictHostKeyChecking=no -r customer_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/customer/
           
           echo "Uploading Vendor APKs..."
-          sshpass -p "${SSH_PASSWORD}" scp -P 65002 -o StrictHostKeyChecking=no -r vendor_new/build/app/outputs/flutter-apk/* u881842192@91.108.107.50:${DEPLOY_PATH}/vendor/
+          sshpass -p "${SSH_PASSWORD}" scp -P 65002 -o StrictHostKeyChecking=no -r vendor_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/vendor/
           
           echo "Uploading Rider APKs..."
-          sshpass -p "${SSH_PASSWORD}" scp -P 65002 -o StrictHostKeyChecking=no -r rider_new/build/app/outputs/flutter-apk/* u881842192@91.108.107.50:${DEPLOY_PATH}/rider/
+          sshpass -p "${SSH_PASSWORD}" scp -P 65002 -o StrictHostKeyChecking=no -r rider_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/rider/
           
           # Also copy to timestamped release directory
-          sshpass -p "${SSH_PASSWORD}" scp -P 65002 -o StrictHostKeyChecking=no -r customer_new/build/app/outputs/flutter-apk/* u881842192@91.108.107.50:${DEPLOY_PATH}/releases/$(date +%Y%m%d-%H%M%S)/customer/
-          sshpass -p "${SSH_PASSWORD}" scp -P 65002 -o StrictHostKeyChecking=no -r vendor_new/build/app/outputs/flutter-apk/* u881842192@91.108.107.50:${DEPLOY_PATH}/releases/$(date +%Y%m%d-%H%M%S)/vendor/
-          sshpass -p "${SSH_PASSWORD}" scp -P 65002 -o StrictHostKeyChecking=no -r rider_new/build/app/outputs/flutter-apk/* u881842192@91.108.107.50:${DEPLOY_PATH}/releases/$(date +%Y%m%d-%H%M%S)/rider/
+          sshpass -p "${SSH_PASSWORD}" scp -P 65002 -o StrictHostKeyChecking=no -r customer_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/releases/${TIMESTAMP}/customer/
+          sshpass -p "${SSH_PASSWORD}" scp -P 65002 -o StrictHostKeyChecking=no -r vendor_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/releases/${TIMESTAMP}/vendor/
+          sshpass -p "${SSH_PASSWORD}" scp -P 65002 -o StrictHostKeyChecking=no -r rider_new/build/app/outputs/flutter-apk/* ${SSH_USER}@${SSH_HOST}:${DEPLOY_PATH}/releases/${TIMESTAMP}/rider/
           
           echo "✅ APKs deployed to otamzo VPS download page"
