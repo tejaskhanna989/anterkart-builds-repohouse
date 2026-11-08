@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/order.dart';
 import '../providers/order_provider.dart';
+import '../widgets/order_time.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final int orderId;
@@ -14,6 +19,7 @@ class OrderDetailScreen extends StatefulWidget {
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Order? _order;
   bool _loading = false;
+  bool _acting = false;
 
   @override
   void initState() {
@@ -94,11 +100,34 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             ),
                           ),
                         if (order.pickupCode.isNotEmpty && (order.status == 'ready' || order.status == 'preparing')) const SizedBox(height: 4),
+                        if (order.deliveryBoyId != 0 && order.status == 'ready')
+                          Card(
+                            color: order.riderArrivedAt.isNotEmpty ? const Color(0xFFECFDF5) : null,
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Row(children: [
+                                Icon(Icons.delivery_dining, color: order.riderArrivedAt.isNotEmpty ? const Color(0xFF10B981) : Colors.grey),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                    Text(
+                                      order.riderArrivedAt.isNotEmpty ? 'Rider is waiting at the counter — hand over the food.' : 'Rider secured and on the way to your store.',
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                    ),
+                                  ]),
+                                ),
+                              ],
+                            ),
+                          ),
+                        if (order.deliveryBoyId != 0 && order.status == 'ready') const SizedBox(height: 4),
+                        if (order.deliveryBoyId != 0 &&
+                            (order.riderLat != null && order.riderLng != null) &&
+                            (order.status == 'out_for_delivery' || order.status == 'ready'))
+                          _buildLiveRiderMap(order),
                         Card(
                           child: Padding(
                             padding: const EdgeInsets.all(14),
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 _timeRow(Icons.schedule, 'Placed', '${formatClock(order.createdAt)}${elapsedSince(order.createdAt).isEmpty ? '' : ' · ${elapsedSince(order.createdAt)}'}'),
                                 if (order.updatedAt.isNotEmpty && order.updatedAt != order.createdAt)
@@ -172,6 +201,105 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ),
             );
           }
+
+  Widget _buildLiveRiderMap(Order o) {
+    final LatLng storeLatLng = LatLng(24.853545, 74.620191);
+    final LatLng riderLatLng = LatLng(o.riderLat!, o.riderLng!);
+    final LatLng destinationLatLng = LatLng(24.8793635, 74.6351433);
+
+    return Card(
+      margin: const EdgeInsets.only(top: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.location_on, color: Color(0xFF10B981)),
+                const SizedBox(width: 8),
+                Text('Live Rider Location', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[800])),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'LIVE',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 250,
+              child: FlutterMap(
+                options: MapOptions(
+                  initialCenter: riderLatLng,
+                  initialZoom: 15.0,
+                  interactionOptions: const InteractionOptions(
+                    flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
+                  ),
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.otamzo.vendor',
+                  ),
+                  MarkerLayer(
+                    markers: [
+                      Marker(
+                        point: riderLatLng,
+                        width: 50,
+                        height: 50,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981),
+                            shape: BoxShape.circle,
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))],
+                          ),
+                          child: const Icon(Icons.motorcycle, color: Colors.white, size: 24),
+                        ),
+                      ),
+                      Marker(
+                        point: LatLng(24.853545, 74.620191),
+                        width: 50,
+                        height: 50,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2563EB),
+                            shape: BoxShape.circle,
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))],
+                          ),
+                          child: const Icon(Icons.store, color: Colors.white, size: 24),
+                        ),
+                      ),
+                      Marker(
+                        point: LatLng(24.8793635, 74.6351433),
+                        width: 50,
+                        height: 50,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444),
+                            shape: BoxShape.circle,
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))],
+                          ),
+                          child: const Icon(Icons.home, color: Colors.white, size: 24),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _statusBadge(String status) {
     Color color;
