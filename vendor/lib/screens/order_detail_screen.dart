@@ -1,14 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../models/order.dart';
 import '../providers/order_provider.dart';
-import '../widgets/order_time.dart';
 
-/// Full order view with timing (placed / updated / completed) and the same
-/// accept → cook → ready actions as the order cards. No dead ends.
 class OrderDetailScreen extends StatefulWidget {
   final int orderId;
   final Order? order;
@@ -21,7 +14,6 @@ class OrderDetailScreen extends StatefulWidget {
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Order? _order;
   bool _loading = false;
-  bool _acting = false;
 
   @override
   void initState() {
@@ -98,40 +90,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                     Text(order.pickupCode, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: 6)),
                                   ]),
                                 ),
-                                const Text('Show at\ncounter', textAlign: TextAlign.right, style: TextStyle(fontSize: 12, color: Colors.grey)),
                               ]),
                             ),
                           ),
-                        ),
                         if (order.pickupCode.isNotEmpty && (order.status == 'ready' || order.status == 'preparing')) const SizedBox(height: 4),
-                        if (order.deliveryBoyId != 0 && order.status == 'ready')
-                          Card(
-                            color: order.riderArrivedAt.isNotEmpty ? const Color(0xFFECFDF5) : null,
-                            child: Padding(
-                              padding: const EdgeInsets.all(14),
-                              child: Row(children: [
-                                Icon(Icons.delivery_dining, color: order.riderArrivedAt.isNotEmpty ? const Color(0xFF10B981) : Colors.grey),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    order.riderArrivedAt.isNotEmpty ? 'Rider is waiting at the counter — hand over the food.' : 'Rider secured and on the way to your store.',
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                              ]),
-                            ),
-                          ),
-                        if (order.deliveryBoyId != 0 && order.status == 'ready') const SizedBox(height: 4),
-                        // Live rider tracking map
-                        if (order.deliveryBoyId != 0 &&
-                            (order.riderLat != null && order.riderLng != null) &&
-                            (order.status == 'out_for_delivery' || order.status == 'ready'))
-                          _buildLiveRiderMap(),
-                        // Timing card: placed / elapsed / updated / completed.
                         Card(
                           child: Padding(
                             padding: const EdgeInsets.all(14),
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 _timeRow(Icons.schedule, 'Placed', '${formatClock(order.createdAt)}${elapsedSince(order.createdAt).isEmpty ? '' : ' · ${elapsedSince(order.createdAt)}'}'),
                                 if (order.updatedAt.isNotEmpty && order.updatedAt != order.createdAt)
@@ -203,145 +170,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   ),
                 ),
               ),
-    );
-  }
-
-  Widget _buildLiveRiderMap() {
-    final order = _order!;
-    final LatLng storeLatLng = LatLng(24.853545, 74.620191); // Store location
-    final LatLng riderLatLng = LatLng(order.riderLat!, order.riderLng!);
-    final LatLng destinationLatLng = LatLng(24.8793635, 74.6351433); // Default destination
-
-    return Card(
-      margin: const EdgeInsets.only(top: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.location_on, color: Color(0xFF10B981)),
-                const SizedBox(width: 8),
-                Text('Live Rider Location', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[800])),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withOpacity( 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'LIVE',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 250,
-              child: FlutterMap(
-                options: MapOptions(
-                  initialCenter: riderLatLng,
-                  initialZoom: 15.0,
-                  interactionOptions: const InteractionOptions(
-                    flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
-                  ),
-                ),
-                children: [
-                  TileLayer(
-                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.otamzo.vendor',
-                  ),
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: riderLatLng,
-                        width: 50,
-                        height: 50,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF10B981),
-                            shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity( 0.3), blurRadius: 4, offset: const Offset(0, 2))],
-                          ),
-                          child: const Icon(Icons.motorcycle, color: Colors.white, size: 24),
-                        ),
-                      ),
-                      Marker(
-                        point: storeLatLng,
-                        width: 50,
-                        height: 50,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2563EB),
-                            shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity( 0.3), blurRadius: 4, offset: const Offset(0, 2))],
-                          ),
-                          child: const Icon(Icons.store, color: Colors.white, size: 24),
-                        ),
-                      ),
-                      Marker(
-                        point: destinationLatLng,
-                        width: 50,
-                        height: 50,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEF4444),
-                            shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity( 0.3), blurRadius: 4, offset: const Offset(0, 2))],
-                          ),
-                          child: const Icon(Icons.home, color: Colors.white, size: 24),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (order.riderName != null || order.riderPhone != null) ...[
-                  const SizedBox(height: 12),
-                  Card(
-                    color: const Color(0xFFF0FDF4),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            backgroundColor: const Color(0xFF10B981),
-                            child: const Icon(Icons.person, color: Colors.white),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  order.riderName ?? 'Rider',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                ),
-                                if (order.riderPhone != null)
-                                  Text('📞 ${order.riderPhone}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                              ],
-                            ),
-                          ),
-                          if (order.riderPhone != null)
-                            IconButton(
-                              icon: const Icon(Icons.phone, color: Colors.green),
-                              onPressed: () => launchUrl(Uri.parse('tel:${order.riderPhone}')),
-                              tooltip: 'Call rider',
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+            );
+          }
 
   Widget _statusBadge(String status) {
     Color color;
@@ -389,7 +219,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         label = status;
     }
     return Card(
-      color: color.withOpacity( 0.1),
+      color: color.withOpacity(0.1),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -401,27 +231,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ),
       ),
     );
-  }
-
-  String formatClock(String iso) {
-    try {
-      final dt = DateTime.parse(iso).toLocal();
-      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return '';
-    }
-  }
-
-  String elapsedSince(String iso) {
-    try {
-      final dt = DateTime.parse(iso);
-      final diff = DateTime.now().difference(dt.toLocal());
-      if (diff.inHours > 0) return '${diff.inHours}h ${diff.inMinutes % 60}m ago';
-      if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
-      return 'Just now';
-    } catch (_) {
-      return '';
-    }
   }
 
   String formatClock(String iso) {
@@ -468,32 +277,33 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ),
             ),
           ],
-        case 'confirmed':
-          return [
-            ElevatedButton.icon(
-              icon: const Icon(Icons.restaurant),
-              label: const Text('Start Cooking'),
-              onPressed: () => _advance('preparing'),
-            ),
-          ],
-        case 'preparing':
-          return [
-            ElevatedButton.icon(
-              icon: const Icon(Icons.check_circle),
-              label: const Text('Mark Ready'),
-              onPressed: () => _advance('ready'),
-            ),
-          ],
-        case 'ready':
-          return [
-            ElevatedButton.icon(
-              icon: const Icon(Icons.assignment_return),
-              label: const Text('Mark Picked Up'),
-              onPressed: () => _advance('out_for_delivery'),
-            ),
-          ],
-        default:
-          return [];
+        );
+      case 'confirmed':
+        return [
+          ElevatedButton.icon(
+            icon: const Icon(Icons.restaurant),
+            label: const Text('Start Cooking'),
+            onPressed: () => _advance('preparing'),
+          ),
+        ];
+      case 'preparing':
+        return [
+          ElevatedButton.icon(
+            icon: const Icon(Icons.check_circle),
+            label: const Text('Mark Ready'),
+            onPressed: () => _advance('ready'),
+          ),
+        ];
+      case 'ready':
+        return [
+          ElevatedButton.icon(
+            icon: const Icon(Icons.assignment_return),
+            label: const Text('Mark Picked Up'),
+            onPressed: () => _advance('out_for_delivery'),
+          ),
+        ];
+      default:
+        return [];
     }
   }
 
