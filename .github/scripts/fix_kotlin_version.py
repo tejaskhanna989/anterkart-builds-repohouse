@@ -74,7 +74,7 @@ def fix_kotlin_version(project_dir):
         else:
             print(f'android dir does not exist: {android_dir}', flush=True)
     
-    # Fix APP build.gradle (app level) - add kotlin-android plugin with explicit version
+    # Fix APP build.gradle (app level) - change plugins DSL to apply plugin for kotlin-android
     app_build_gradle = os.path.join(project_dir, 'android', 'app', 'build.gradle')
     print(f'Looking for APP: {app_build_gradle}', flush=True)
     print(f'APP Exists: {os.path.exists(app_build_gradle)}', flush=True)
@@ -95,10 +95,11 @@ def fix_kotlin_version(project_dir):
             content
         )
         
-        # Add id "org.jetbrains.kotlin.android" version "1.9.10" to plugins block
+        # Add id "org.jetbrains.kotlin.android" version "1.9.10" INSIDE the plugins block
+        # Find the plugins block and insert the new plugin before the closing brace
         content = re.sub(
-            r'(plugins\s*\{[^}]*\})',
-            f'\\1\n    id "org.jetbrains.kotlin.android" version "{KOTLIN_VERSION}" apply false',
+            r'(plugins\s*\{[^}]*)\}',
+            f'\\1\n    id "org.jetbrains.kotlin.android" version "{KOTLIN_VERSION}"\n}}',
             content,
             count=1
         )
