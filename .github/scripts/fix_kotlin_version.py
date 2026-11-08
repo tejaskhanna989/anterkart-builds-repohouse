@@ -3,7 +3,7 @@ import sys
 import os
 
 def fix_kotlin_version(project_dir):
-    """Fix Kotlin version in a Flutter project's Gradle files (Kotlin DSL .kts)."""
+    """Fix Kotlin version in a Flutter project's Gradle files (Groovy DSL .gradle)."""
     print(f'\n=== Fixing Kotlin version for {project_dir} ===', flush=True)
     print(f'Current working directory: {os.getcwd()}', flush=True)
     print(f'Project dir absolute: {os.path.abspath(project_dir)}', flush=True)
@@ -13,8 +13,8 @@ def fix_kotlin_version(project_dir):
     KOTLIN_VERSION = '1.9.10'
     AGP_VERSION = '8.1.0'
     
-    # Fix ROOT build.gradle.kts (project level) - add buildscript block
-    root_build_gradle = os.path.join(project_dir, 'android', 'build.gradle.kts')
+    # Fix ROOT build.gradle (project level) - add buildscript block
+    root_build_gradle = os.path.join(project_dir, 'android', 'build.gradle')
     print(f'Looking for ROOT: {root_build_gradle}', flush=True)
     print(f'ROOT Exists: {os.path.exists(root_build_gradle)}', flush=True)
     
@@ -28,17 +28,30 @@ def fix_kotlin_version(project_dir):
         # Check if buildscript already exists
         if 'buildscript {' in content:
             print('ROOT: buildscript block already exists', flush=True)
+            # Update kotlin_version in existing buildscript
+            content = re.sub(
+                r'(ext\.kotlin_version\s*=\s*)[\'"][^\'"]*[\'"]',
+                rf'\1"{KOTLIN_VERSION}"',
+                content
+            )
+            # Update classpath
+            content = re.sub(
+                r'classpath\s+[\'"]org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+[\'"]',
+                f'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:{KOTLIN_VERSION}"',
+                content
+            )
+            print('ROOT: Updated existing buildscript block', flush=True)
         else:
             # Add buildscript block at the beginning
             buildscript_block = f'''buildscript {{
-    ext.kotlin_version = "{KOTLIN_VERSION}"
+    ext.kotlin_version = '{KOTLIN_VERSION}'
     repositories {{
         google()
         mavenCentral()
     }}
     dependencies {{
-        classpath("com.android.tools.build:gradle:{AGP_VERSION}")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:{KOTLIN_VERSION}")
+        classpath 'com.android.tools.build:gradle:{AGP_VERSION}'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:{KOTLIN_VERSION}"
     }}
 }}
 
@@ -52,7 +65,7 @@ def fix_kotlin_version(project_dir):
         
         # Verify
         print(f'ROOT New content: {content}', flush=True)
-        print(f'SUCCESS: Root build.gradle.kts updated with Kotlin {KOTLIN_VERSION} and AGP {AGP_VERSION}', flush=True)
+        print(f'SUCCESS: Root build.gradle updated with Kotlin {KOTLIN_VERSION} and AGP {AGP_VERSION}', flush=True)
     else:
         print(f'NOT FOUND ROOT: {root_build_gradle}', flush=True)
         android_dir = os.path.join(project_dir, 'android')
@@ -61,8 +74,8 @@ def fix_kotlin_version(project_dir):
         else:
             print(f'android dir does not exist: {android_dir}', flush=True)
     
-    # Fix APP build.gradle.kts (app level) - ensure kotlin block has correct jvmTarget
-    app_build_gradle = os.path.join(project_dir, 'android', 'app', 'build.gradle.kts')
+    # Fix APP build.gradle (app level) - change plugins DSL to apply plugin for kotlin-android
+    app_build_gradle = os.path.join(project_dir, 'android', 'app', 'build.gradle')
     print(f'Looking for APP: {app_build_gradle}', flush=True)
     print(f'APP Exists: {os.path.exists(app_build_gradle)}', flush=True)
     
@@ -75,16 +88,27 @@ def fix_kotlin_version(project_dir):
         
         original_content = content
         
-        # Ensure kotlin block has jvmTarget 17
-        if 'jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17' not in content:
-            # Add jvmTarget to kotlin block
-            content = re.sub(
-                r'(kotlin\s*\{[^}]*)',
-                r'\1\n    compilerOptions {\n        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17\n    }',
-                content,
-                count=1
-            )
-            print('APP: Added jvmTarget to kotlin block', flush=True)
+        # Remove id "kotlin-android" from plugins block
+        content = re.sub(
+            r'\n\s*id\s+[\'"]kotlin-android[\'"]\s*',
+            '',
+            content
+        )
+        
+        # Add apply plugin: "kotlin-android" after the plugins block
+        content = re.sub(
+            r'(plugins\s*\{[^}]*\})',
+            r'\1\n\napply plugin: "kotlin-android"',
+            content,
+            count=1
+        )
+        
+        # Also handle classpath in buildscript dependencies
+        content = re.sub(
+            r'classpath\s+[\'"]org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+[\'"]',
+            f'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:{KOTLIN_VERSION}"',
+            content
+        )
         
         if content != original_content:
             with open(app_build_gradle, 'w') as f:
@@ -96,12 +120,17 @@ def fix_kotlin_version(project_dir):
         # Verify
         with open(app_build_gradle, 'r') as f:
             new_content = f.read()
-        print(f'APP New content preview: {new_content[:500]}', flush=True)
+        if 'apply plugin: "kotlin-android"' in new_content:
+            print('SUCCESS: apply plugin: "kotlin-android" added in app build.gradle', flush=True)
+        else:
+            print('WARNING: apply plugin: "kotlin-android" may not have been added correctly', flush=True)
+            for m in re.finditer(r'apply plugin', new_content):
+                print(f'Found "apply plugin" at position {m.start()}: ...{new_content[max(0,m.start()-50):m.end()+50]}...', flush=True)
     else:
         print(f'NOT FOUND APP: {app_build_gradle}', flush=True)
     
-    # Fix settings.gradle.kts
-    settings_gradle = os.path.join(project_dir, 'android', 'settings.gradle.kts')
+    # Fix settings.gradle
+    settings_gradle = os.path.join(project_dir, 'android', 'settings.gradle')
     print(f'Looking for SETTINGS: {settings_gradle}', flush=True)
     print(f'SETTINGS Exists: {os.path.exists(settings_gradle)}', flush=True)
     
@@ -111,8 +140,19 @@ def fix_kotlin_version(project_dir):
         
         print(f'SETTINGS Processing: {settings_gradle}', flush=True)
         
-        # No changes needed for settings.gradle.kts typically
-        print(f'NO CHANGE NEEDED SETTINGS: {settings_gradle}', flush=True)
+        original_content = content
+        content = re.sub(
+            r'classpath\s+[\'"]org\.jetbrains\.kotlin:kotlin-gradle-plugin:[0-9]+\.[0-9]+\.[0-9]+[\'"]',
+            f'classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:{KOTLIN_VERSION}"',
+            content
+        )
+        
+        if content != original_content:
+            with open(settings_gradle, 'w') as f:
+                f.write(content)
+            print(f'UPDATED SETTINGS: {settings_gradle}', flush=True)
+        else:
+            print(f'NO CHANGE NEEDED SETTINGS: {settings_gradle}', flush=True)
     else:
         print(f'NOT FOUND SETTINGS: {settings_gradle}', flush=True)
 
