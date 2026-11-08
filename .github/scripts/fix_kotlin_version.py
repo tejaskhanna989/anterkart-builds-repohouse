@@ -88,10 +88,11 @@ def fix_kotlin_version(project_dir):
         
         original_content = content
         
-        # Remove id "kotlin-android" from plugins block
+        # Remove id "kotlin-android" from plugins block - preserve newlines
+        # Match the entire line including the newline after it
         content = re.sub(
-            r'\n\s*id\s+[\'"]kotlin-android[\'"]\s*',
-            '',
+            r'(\n\s*)id\s+[\'"]kotlin-android[\'"]\s*(\n)',
+            r'\1\2',
             content
         )
         
