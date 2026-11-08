@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 120
 
     steps:
@@ -34,248 +34,80 @@ jobs:
           python-version: '3.11'
 
       - name: Patch Flutter SDK gradle plugin (fix Groovy QName/XmlParser)
-        shell: pwsh
         run: |
-          $flutterGroovy = "C:\hostedtoolcache\windows\flutter\stable-3.24.3-x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy"
-          if (Test-Path $flutterGroovy) {
-            Write-Host "Found flutter.groovy at: $flutterGroovy"
-            Copy-Item "$flutterGroovy" "$flutterGroovy.backup"
-            python3 .github/scripts/patch_flutter_groovy.py "$flutterGroovy"
-            if ($LASTEXITCODE -ne 0) {
-              Write-Error "Python patch script failed"
+          FLUTTER_GROOVY="$HOME/flutter/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy"
+          if [ -f "$FLUTTER_GROOVY" ]; then
+            cp "$FLUTTER_GROOVY" "$FLUTTER_GROOVY.backup"
+            python3 .github/scripts/patch_flutter_groovy.py "$FLUTTER_GROOVY"
+            if [ $? -ne 0 ]; then
+              echo "Python patch script failed"
               exit 1
-            }
-            Write-Host "Patched flutter.groovy successfully"
-            Write-Host "Checking for remaining QName/XmlParser references:"
-            Select-String -Pattern "QName|XmlParser" -Path "C:\hostedtoolcache\windows\flutter\stable-3.24.3-x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy" | ForEach-Object { Write-Host "$($_.LineNumber): $($_.Line)" } | Out-Host
-            if (-not (Select-String -Pattern "QName|XmlParser" -Path "C:\hostedtoolcache\windows\flutter\stable-3.24.3-x64\flutter\packages\flutter_tools\gradle\src\main\groovy\flutter.groovy")) {
-              Write-Host "No references found"
-            }
-          } else {
-            Write-Host "WARNING: flutter.groovy not found at expected path!"
-            Get-ChildItem -Path "C:\hostedtoolcache\windows\flutter" -Filter "flutter.groovy" -Recurse -ErrorAction SilentlyContinue
-          }
+            fi
+            echo "Patched flutter.groovy successfully"
+          else
+            echo "WARNING: flutter.groovy not found at $FLUTTER_GROOVY"
+          fi
 
-      - name: Create fresh Flutter projects
-        shell: pwsh
+      - name: Get Flutter dependencies (Customer)
+        working-directory: customer
         run: |
-          flutter create --template=app --platforms=android customer_new
-          flutter create --template=app --platforms=android vendor_new
-          flutter create --template=app --platforms=android rider_new
-
-      - name: Copy Dart code, assets, and pubspec
-        shell: pwsh
-        run: |
-          # Customer
-          Copy-Item -Path customer\lib -Destination customer_new\lib -Recurse -Force
-          Copy-Item -Path customer\assets -Destination customer_new\assets -Recurse -Force -ErrorAction SilentlyContinue
-          Copy-Item -Path customer\pubspec.yaml -Destination customer_new\pubspec.yaml -Force
-          # Vendor
-          Copy-Item -Path vendor\lib -Destination vendor_new\lib -Recurse -Force
-          Copy-Item -Path vendor\assets -Destination vendor_new\assets -Recurse -Force -ErrorAction SilentlyContinue
-          Copy-Item -Path vendor\pubspec.yaml -Destination vendor_new\pubspec.yaml -Force
-          # Rider
-          Copy-Item -Path rider\lib -Destination rider_new\lib -Recurse -Force
-          Copy-Item -Path rider\assets -Destination rider_new\assets -Recurse -Force -ErrorAction SilentlyContinue
-          Copy-Item -Path rider\pubspec.yaml -Destination rider_new\pubspec.yaml -Force
-
-      - name: Fix Kotlin version in generated projects (Python script - AFTER copying Android config)
-        shell: pwsh
-        working-directory: ${{ github.workspace }}
-        run: |
-          Write-Host "=== Starting Kotlin version fix (Python script) ==="
-          Write-Host "Working directory: $(Get-Location)"
-          Write-Host "GITHUB_WORKSPACE: $env:GITHUB_WORKSPACE"
-          Write-Host "Projects exist:"
-          Write-Host "  customer_new: $(Test-Path customer_new)"
-          Write-Host "  vendor_new: $(Test-Path vendor_new)"
-          Write-Host "  rider_new: $(Test-Path rider_new)"
-          
-          python3 .github/scripts/fix_kotlin_version.py
-          
-          $exitCode = $LASTEXITCODE
-          Write-Host "Python script exited with code: $exitCode"
-          if ($exitCode -ne 0) {
-            Write-Error "Python fix script failed with exit code $exitCode"
-            exit $exitCode
-          }
-          Write-Host "=== Kotlin version fix completed ==="
-
-      - name: Get Flutter dependencies
-        shell: pwsh
-        run: |
-          Set-Location customer_new
-          flutter pub get
-          Set-Location ../vendor_new
-          flutter pub get
-          Set-Location ../rider_new
           flutter pub get
 
-      - name: Fix Gradle wrapper distribution URL (use services.gradle.org instead of GitHub)
-        shell: pwsh
+      - name: Get Flutter dependencies (Vendor)
+        working-directory: vendor
         run: |
-          $projects = @("customer_new", "vendor_new", "rider_new")
-          foreach ($proj in $projects) {
-            $wrapperProps = "$proj\android\gradle\wrapper\gradle-wrapper.properties"
-            if (Test-Path $wrapperProps) {
-              $content = Get-Content $wrapperProps -Raw
-              Write-Host "Original content of ${wrapperProps}:"
-              Write-Host $content
-              # Force distributionUrl to services.gradle.org - match any line with distributionUrl
-              $content = $content -replace '(?m)^distributionUrl=.*$', 'distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-all.zip'
-              Set-Content $wrapperProps $content
-              Write-Host "Fixed ${wrapperProps}"
-              Get-Content $wrapperProps
-            } else {
-              Write-Host "NOT FOUND: ${wrapperProps}"
-            }
-          }
+          flutter pub get
 
-      - name: Verify root build.gradle content
-        shell: pwsh
+      - name: Get Flutter dependencies (Rider)
+        working-directory: rider
         run: |
-          Write-Host "=== Verifying root build.gradle content ==="
-          Write-Host "Customer:"
-          Get-Content customer_new\android\build.gradle
-          Write-Host "`nVendor:"
-          Get-Content vendor_new\android\build.gradle
-          Write-Host "`nRider:"
-          Get-Content rider_new\android\build.gradle
+          flutter pub get
 
-      - name: Verify app build.gradle content
-        shell: pwsh
+      - name: Fix Gradle wrapper distribution URL
         run: |
-          Write-Host "=== Verifying app build.gradle content ==="
-          Write-Host "Customer:"
-          Get-Content customer_new\android\app\build.gradle
-          Write-Host "`nVendor:"
-          Get-Content vendor_new\android\app\build.gradle
-          Write-Host "`nRider:"
-          Get-Content rider_new\android\app\build.gradle
+          for proj in customer vendor rider; do
+            wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
+            if [ -f "$wrapper_props" ]; then
+              echo "Original $wrapper_props:"
+              cat "$wrapper_props"
+              # Force distributionUrl to services.gradle.org
+              sed -i 's|^distributionUrl=.*$|distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-all.zip|' "$wrapper_props"
+              echo "Fixed $wrapper_props:"
+              cat "$wrapper_props"
+            else
+              echo "NOT FOUND: $wrapper_props"
+            fi
+          done
 
       - name: Build Customer APK
-        working-directory: customer_new
-        shell: pwsh
+        working-directory: customer
         run: flutter build apk --release --split-per-abi
 
       - name: Build Vendor APK
-        working-directory: vendor_new
-        shell: pwsh
+        working-directory: vendor
         run: flutter build apk --release --split-per-abi
 
       - name: Build Rider APK
-        working-directory: rider_new
-        shell: pwsh
+        working-directory: rider
         run: flutter build apk --release --split-per-abi
 
       - name: Upload Customer APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: customer-apk
-          path: customer_new/build/app/outputs/flutter-apk/
+          path: customer/build/app/outputs/flutter-apk/
           retention-days: 7
 
       - name: Upload Vendor APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: vendor-apk
-          path: vendor_new/build/app/outputs/flutter-apk/
+          path: vendor/build/app/outputs/flutter-apk/
           retention-days: 7
 
       - name: Upload Rider APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: rider-apk
-          path: rider_new/build/app/outputs/flutter-apk/
+          path: rider/build/app/outputs/flutter-apk/
           retention-days: 7
-
-      - name: Deploy APKs to otamzo VPS (download page)
-        if: github.ref == 'refs/heads/main'
-        env:
-          SSH_HOST: 91.108.107.50
-          SSH_PORT: 65002
-          SSH_USER: u881842192
-          SSH_PASSWORD: ${{ secrets.OTAMZO_SSH_PASSWORD }}
-          DEPLOY_PATH: /home/u881842192/otamzo-download-page
-        shell: pwsh
-        run: |
-          # Download PuTTY's pscp.exe and plink.exe (reliable, supports -pw for password auth)
-          $pscpUrl = "https://the.earth.li/~sgtatham/putty/latest/w64/pscp.exe"
-          $pscpPath = "C:\Program Files\putty\pscp.exe"
-          $plinkPath = "C:\Program Files\putty\plink.exe"
-          New-Item -ItemType Directory -Force -Path "C:\Program Files\putty"
-          Invoke-WebRequest -Uri $pscpUrl -OutFile $pscpPath
-          Invoke-WebRequest -Uri "https://the.earth.li/~sgtatham/putty/latest/w64/plink.exe" -OutFile $plinkPath
-          $env:PATH += ";C:\Program Files\putty"
-          
-          # Verify tools work
-          & $pscpPath -V
-          & $plinkPath -V
-          
-          # Wait for SSH to be ready with retries
-          $maxRetries = 5
-          $retryDelay = 10
-          for ($i = 1; $i -le $maxRetries; $i++) {
-            Write-Host "Attempt ${i}/${maxRetries}: Testing SSH connection..."
-            $testResult = & $plinkPath -ssh -P $env:SSH_PORT -pw "${SSH_PASSWORD}" -batch ${SSH_USER}@${SSH_HOST} "echo 'SSH OK'" 2>&1
-            if ($LASTEXITCODE -eq 0) {
-              Write-Host "SSH connection successful!"
-              break
-            }
-            Write-Host "SSH not ready yet: ${testResult}"
-            if ($i -lt $maxRetries) {
-              Write-Host "Waiting ${retryDelay} seconds before retry..."
-              Start-Sleep -Seconds $retryDelay
-            }
-          }
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "SSH connection failed after ${maxRetries} attempts"
-            exit 1
-          }
-          
-          # Create timestamped release directory
-          $TIMESTAMP = Get-Date -Format "yyyyMMdd-HHmmss"
-          $RELEASE_DIR = "${DEPLOY_PATH}/release-${TIMESTAMP}"
-          
-          Write-Host "Creating release directory on VPS..."
-          & $plinkPath -ssh -P $env:SSH_PORT -pw "${SSH_PASSWORD}" -batch ${SSH_USER}@${SSH_HOST} "mkdir -p ${RELEASE_DIR}/{customer,vendor,rider}"
-          
-          # Function to upload a directory using pscp (Windows-compatible)
-          function Upload-Directory {
-            param($localPath, $remotePath)
-            Write-Host "Uploading ${localPath} to ${remotePath}..."
-            
-            # Create remote directory first
-            & $plinkPath -ssh -P $env:SSH_PORT -pw "${SSH_PASSWORD}" -batch ${SSH_USER}@${SSH_HOST} "mkdir -p ${remotePath}"
-            
-            # Get all files recursively and upload each
-            $files = Get-ChildItem -Path $localPath -Recurse -File
-            foreach ($file in $files) {
-              $relativePath = $file.FullName.Substring($localPath.Length + 1).Replace('\', '/')
-              $remoteFile = "${remotePath}/${relativePath}"
-              $remoteDir = Split-Path $remoteFile -Parent
-              
-              # Ensure remote directory exists
-              & $plinkPath -ssh -P $env:SSH_PORT -pw "${SSH_PASSWORD}" -batch ${SSH_USER}@${SSH_HOST} "mkdir -p ${remoteDir}" 2>$null
-              
-              # Upload file
-              & $pscpPath -P $env:SSH_PORT -pw "${SSH_PASSWORD}" -batch "${file.FullName}" ${SSH_USER}@${SSH_HOST}:${remoteFile}
-              if ($LASTEXITCODE -ne 0) {
-                Write-Error "Failed to upload ${relativePath}"
-                exit 1
-              }
-            }
-            Write-Host "Uploaded ${files.Count} files to ${remotePath}"
-          }
-          
-          # Upload each app's APKs
-          Upload-Directory "customer_new/build/app/outputs/flutter-apk" "${DEPLOY_PATH}/customer"
-          Upload-Directory "vendor_new/build/app/outputs/flutter-apk" "${DEPLOY_PATH}/vendor"
-          Upload-Directory "rider_new/build/app/outputs/flutter-apk" "${DEPLOY_PATH}/rider"
-          
-          # Also copy to timestamped release directory
-          Upload-Directory "customer_new/build/app/outputs/flutter-apk" "${DEPLOY_PATH}/releases/${TIMESTAMP}/customer"
-          Upload-Directory "vendor_new/build/app/outputs/flutter-apk" "${DEPLOY_PATH}/releases/${TIMESTAMP}/vendor"
-          Upload-Directory "rider_new/build/app/outputs/flutter-apk" "${DEPLOY_PATH}/releases/${TIMESTAMP}/rider"
-          
-          Write-Host "✅ APKs deployed to otamzo VPS download page"
