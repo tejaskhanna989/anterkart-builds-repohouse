@@ -111,16 +111,16 @@ jobs:
           Set-Location ../rider_new
           flutter pub get
 
-      - name: Verify root build.gradle content
+      - name: Verify root build.gradle.kts content
         shell: pwsh
         run: |
-          Write-Host "=== Verifying root build.gradle content ==="
+          Write-Host "=== Verifying root build.gradle.kts content ==="
           Write-Host "Customer:"
-          Get-Content customer_new\android\build.gradle
+          Get-Content customer_new\android\build.gradle.kts
           Write-Host "`nVendor:"
-          Get-Content vendor_new\android\build.gradle
+          Get-Content vendor_new\android\build.gradle.kts
           Write-Host "`nRider:"
-          Get-Content rider_new\android\build.gradle
+          Get-Content rider_new\android\build.gradle.kts
 
       - name: Build Customer APK
         working-directory: customer_new
