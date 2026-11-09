@@ -12,3 +12,4 @@ trigger-ci-flutter329
 trigger-ci-customer-vendor
 trigger-ci-flutter329
 trigger-ci-customer-vendor
+trigger-ci-rider-fix
