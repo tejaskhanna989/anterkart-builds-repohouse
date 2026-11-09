@@ -58,31 +58,30 @@ jobs:
             echo "WARNING: flutter.groovy not found at $FLUTTER_GROOVY"
           fi
 
-      - name: Patch Flutter Gradle wrapper download URL (fix GitHub CDN 504)
+      - name: Download Gradle 9.3.1 locally (fix GitHub CDN 504)
         run: |
-          # Detect Flutter root directory
-          if [ -n "$FLUTTER_ROOT" ]; then
-            FLUTTER_BASE="$FLUTTER_ROOT"
-          elif [ -d "$HOME/flutter" ]; then
-            FLUTTER_BASE="$HOME/flutter"
-          else
-            FLUTTER_BASE="$(dirname "$(dirname "$(which flutter)")")"
-          fi
-          # Patch Flutter's Gradle wrapper URL from GitHub CDN to services.gradle.org
-          grep -rl "gradle-distributions\|github.com/gradle" "$FLUTTER_BASE" 2>/dev/null | while read f; do
-            echo "Patching Gradle URL in $f"
-            sed -i 's|https://github.com/gradle/gradle-distributions/releases/download/v[0-9.]*|https://services.gradle.org/distributions|g' "$f"
-          done
-          # Also patch all wrapper.properties in the workspace
-          find . -name "gradle-wrapper.properties" -exec sed -i 's|distributionUrl=.*|distributionUrl=https\://services.gradle.org/distributions/gradle-9.3.1-all.zip|' {} \;
-          echo "Gradle wrapper URL patch complete"
+          # Download Gradle 9.3.1 from services.gradle.org to local file
+          mkdir -p $HOME/gradle-download
+          cd $HOME/gradle-download
+          wget -q https://services.gradle.org/distributions/gradle-9.3.1-all.zip -O gradle-9.3.1-all.zip
+          echo "Gradle downloaded: $(ls -la gradle-9.3.1-all.zip)"
 
-      - name: Pre-download Gradle 8.13 distribution
+      - name: Fix Gradle wrapper to use local file:// URL
         run: |
-          # Pre-download Gradle so wrapper doesn't need to fetch from GitHub CDN
-          mkdir -p ~/.gradle/wrapper/dists
-          cd ~/.gradle/wrapper/dists
-          wget -q https://services.gradle.org/distributions/gradle-9.3.1-all.zip || echo "Pre-download failed, will rely on URL patch"
+          # Use file:// URL to avoid GitHub CDN download issues
+          GRADLE_ZIP="file://$HOME/gradle-download/gradle-9.3.1-all.zip"
+          for proj in customer vendor rider; do
+            wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
+            if [ -f "$wrapper_props" ]; then
+              echo "Original $wrapper_props:"
+              cat "$wrapper_props"
+              sed -i "s|^distributionUrl=.*$|distributionUrl=$GRADLE_ZIP|" "$wrapper_props"
+              echo "Fixed $wrapper_props:"
+              cat "$wrapper_props"
+            else
+              echo "NOT FOUND: $wrapper_props"
+            fi
+          done
 
       - name: Get Flutter dependencies (Customer)
         working-directory: customer
@@ -99,19 +98,18 @@ jobs:
         run: |
           flutter pub get
 
-      - name: Fix Gradle wrapper distribution URL
+      - name: Re-fix Gradle wrapper after pub get (in case Flutter regenerated it)
         run: |
+          GRADLE_ZIP="file://$HOME/gradle-download/gradle-9.3.1-all.zip"
           for proj in customer vendor rider; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
-              echo "Original $wrapper_props:"
-              cat "$wrapper_props"
-              # Force distributionUrl to services.gradle.org - use Gradle 9.3.1 (required by Rider's AGP)
-              sed -i 's|^distributionUrl=.*$|distributionUrl=https\://services.gradle.org/distributions/gradle-9.3.1-all.zip|' "$wrapper_props"
-              echo "Fixed $wrapper_props:"
-              cat "$wrapper_props"
-            else
-              echo "NOT FOUND: $wrapper_props"
+              current=$(grep "^distributionUrl=" "$wrapper_props")
+              echo "$wrapper_props: $current"
+              if [[ "$current" != *"file://"* ]]; then
+                echo "Re-fixing $wrapper_props to use local Gradle"
+                sed -i "s|^distributionUrl=.*$|distributionUrl=$GRADLE_ZIP|" "$wrapper_props"
+              fi
             fi
           done
 
