@@ -1,7 +1,7 @@
 plugins {
     id("com.android.application")
     id("dev.flutter.flutter-gradle-plugin")
-    id("com.google.gms.google-services") version "4.3.15"
+    id("com.google.gms.google-services") version "4.4.1"
 }
 
 import java.io.FileInputStream
