@@ -9,3 +9,4 @@ trigger-ci-rider-final
 trigger-ci-rider-only-flutter
 trigger-ci-rider-final
 trigger-ci-flutter329
+trigger-ci-customer-vendor
