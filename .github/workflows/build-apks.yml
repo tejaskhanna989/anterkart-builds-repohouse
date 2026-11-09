@@ -65,7 +65,7 @@ jobs:
           # Pre-download Gradle so wrapper doesn't need to fetch from GitHub CDN
           mkdir -p ~/.gradle/wrapper/dists
           cd ~/.gradle/wrapper/dists
-          wget -q https://services.gradle.org/distributions/gradle-8.13-all.zip || echo "Pre-download failed, will rely on URL patch"
+          wget -q https://services.gradle.org/distributions/gradle-9.3.1-all.zip || echo "Pre-download failed, will rely on URL patch"
 
       - name: Get Flutter dependencies (Customer)
         working-directory: customer
@@ -89,8 +89,8 @@ jobs:
             if [ -f "$wrapper_props" ]; then
               echo "Original $wrapper_props:"
               cat "$wrapper_props"
-              # Force distributionUrl to services.gradle.org - use Gradle 8.13 (minimum required)
-              sed -i 's|^distributionUrl=.*$|distributionUrl=https\://services.gradle.org/distributions/gradle-8.13-all.zip|' "$wrapper_props"
+              # Force distributionUrl to services.gradle.org - use Gradle 9.3.1 (required by Rider's AGP)
+              sed -i 's|^distributionUrl=.*$|distributionUrl=https\://services.gradle.org/distributions/gradle-9.3.1-all.zip|' "$wrapper_props"
               echo "Fixed $wrapper_props:"
               cat "$wrapper_props"
             else
