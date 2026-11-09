@@ -3,14 +3,6 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-buildscript {
-    dependencies {
-        classpath("com.google.gms:google-services:4.4.1")
-    }
-}
-
-apply(plugin = "com.google.gms.google-services")
-
 import java.io.FileInputStream
 import java.util.Properties
 
