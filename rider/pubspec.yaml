@@ -9,9 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  geolocator: ^11.0.0
+  geolocator: ^9.0.0
   onesignal_flutter: ^5.2.0
-  audioplayers: 5.2.1
   provider: ^6.1.1
   shared_preferences: ^2.2.2
   http: ^1.1.0
