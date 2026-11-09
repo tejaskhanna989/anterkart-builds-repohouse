@@ -5,3 +5,4 @@ trigger-ci-rider-fix
 trigger-ci-rider
 trigger-ci-flutter-3.29
 trigger-rider-clean
+trigger-ci-rider-final
