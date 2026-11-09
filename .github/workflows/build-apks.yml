@@ -19,7 +19,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.3'
+          flutter-version: '3.29.0'
           channel: 'stable'
 
       - name: Set up Java 17
@@ -68,21 +68,21 @@ jobs:
             echo "Proguard patch complete"
           fi
 
-      - name: Download Gradle 8.13 locally (fix GitHub CDN 504)
+      - name: Download Gradle 9.3.1 locally (fix GitHub CDN 504)
         run: |
           mkdir -p $HOME/gradle-download
           cd $HOME/gradle-download
-          wget -q https://services.gradle.org/distributions/gradle-8.13-all.zip -O gradle-8.13-all.zip
-          echo "Gradle downloaded: $(ls -la gradle-8.13-all.zip)"
+          wget -q https://services.gradle.org/distributions/gradle-9.3.1-all.zip -O gradle-9.3.1-all.zip
+          echo "Gradle downloaded: $(ls -la gradle-9.3.1-all.zip)"
 
-      - name: Fix Gradle wrapper to use Gradle 8.13 for all apps
+      - name: Fix Gradle wrapper to use Gradle 9.3.1 for all apps
         run: |
-          GRADLE_813="file://${HOME}/gradle-download/gradle-8.13-all.zip"
+          GRADLE_931="file://${HOME}/gradle-download/gradle-9.3.1-all.zip"
           for proj in customer vendor rider; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
-              echo "Setting $wrapper_props to Gradle 8.13"
-              sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_813}|" "$wrapper_props"
+              echo "Setting $wrapper_props to Gradle 9.3.1"
+              sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_931}|" "$wrapper_props"
               cat "$wrapper_props"
             fi
           done
@@ -104,14 +104,21 @@ jobs:
 
       - name: Re-fix Gradle wrapper after pub get
         run: |
-          GRADLE_813="file://${HOME}/gradle-download/gradle-8.13-all.zip"
+          GRADLE_931="file://${HOME}/gradle-download/gradle-9.3.1-all.zip"
           for proj in customer vendor rider; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
-              echo "Re-fixing $wrapper_props to Gradle 8.13"
-              sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_813}|" "$wrapper_props"
+              echo "Re-fixing $wrapper_props to Gradle 9.3.1"
+              sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_931}|" "$wrapper_props"
             fi
           done
+
+      - name: Patch Flutter Gradle Plugin for Gradle 9 compatibility (fix exec() call)
+        run: |
+          FLUTTER_GRADLE_PLUGIN="$FLUTTER_BASE/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy"
+          if [ -f "$FLUTTER_GRADLE_PLUGIN" ]; then
+            python3 .github/scripts/patch_flutter_groovy_gradle9.py "$FLUTTER_GRADLE_PLUGIN"
+          fi
 
       - name: Build Customer APK
         working-directory: customer
