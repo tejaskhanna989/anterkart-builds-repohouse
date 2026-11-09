@@ -33,7 +33,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Patch Flutter SDK gradle plugin (fix Groovy QName/XmlParser)
+      - name: Patch Flutter SDK gradle plugin (fix Groovy QName/XmlParser and Proguard)
         run: |
           # Detect Flutter root directory
           if [ -n "$FLUTTER_ROOT" ]; then
@@ -56,6 +56,18 @@ jobs:
             echo "Patched flutter.groovy successfully"
           else
             echo "WARNING: flutter.groovy not found at $FLUTTER_GROOVY"
+          fi
+
+          # Patch Flutter Gradle Plugin to use proguard-android-optimize.txt instead of deprecated proguard-android.txt
+          FLUTTER_GRADLE_PLUGIN="$FLUTTER_BASE/packages/flutter_tools/gradle"
+          if [ -d "$FLUTTER_GRADLE_PLUGIN" ]; then
+            find "$FLUTTER_GRADLE_PLUGIN" -type f -name "*.gradle" -o -name "*.groovy" -o -name "*.kt" | while read f; do
+              if grep -q "proguard-android.txt" "$f" 2>/dev/null; then
+                echo "Patching proguard config in $f"
+                sed -i 's/proguard-android\.txt/proguard-android-optimize.txt/g' "$f"
+              fi
+            done
+            echo "Proguard patch complete"
           fi
 
       - name: Download Gradle versions locally (fix GitHub CDN 504)
