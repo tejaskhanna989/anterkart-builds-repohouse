@@ -48,6 +48,25 @@ jobs:
             echo "WARNING: flutter.groovy not found at $FLUTTER_GROOVY"
           fi
 
+      - name: Patch Flutter Gradle wrapper download URL (fix GitHub CDN 504)
+        run: |
+          # Patch Flutter's Gradle wrapper URL from GitHub CDN to services.gradle.org
+          FLUTTER_ROOT="$HOME/flutter"
+          find "$FLUTTER_ROOT/packages/flutter_tools" -type f \( -name "*.dart" -o -name "*.groovy" -o -name "*.properties" -o -name "*.template" \) -print0 2>/dev/null | while IFS= read -r -d '' f; do
+            if grep -q "gradle-distributions" "$f" 2>/dev/null; then
+              echo "Patching Gradle URL in $f"
+              sed -i 's|https://github.com/gradle/gradle-distributions/releases/download/v[0-9.]*|https://services.gradle.org/distributions|g' "$f"
+            fi
+          done
+          echo "Gradle wrapper URL patch complete"
+
+      - name: Pre-download Gradle 8.13 distribution
+        run: |
+          # Pre-download Gradle so wrapper doesn't need to fetch from GitHub CDN
+          mkdir -p ~/.gradle/wrapper/dists
+          cd ~/.gradle/wrapper/dists
+          wget -q https://services.gradle.org/distributions/gradle-8.13-all.zip || echo "Pre-download failed, will rely on URL patch"
+
       - name: Get Flutter dependencies (Customer)
         working-directory: customer
         run: |
