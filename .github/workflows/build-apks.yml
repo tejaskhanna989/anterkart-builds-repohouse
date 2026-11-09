@@ -123,22 +123,16 @@ jobs:
           for proj in customer vendor; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
-              current=$(grep "^distributionUrl=" "$wrapper_props")
-              if [[ "$current" != *"file://"* ]]; then
-                echo "Re-fixing $wrapper_props to Gradle 8.13"
-                sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_813}|" "$wrapper_props"
-              fi
+              echo "Re-fixing $wrapper_props to Gradle 8.13"
+              sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_813}|" "$wrapper_props"
             fi
           done
           # Rider uses Gradle 9.3.1
           wrapper_props="rider/android/gradle/wrapper/gradle-wrapper.properties"
           if [ -f "$wrapper_props" ]; then
-            current=$(grep "^distributionUrl=" "$wrapper_props")
-            if [[ "$current" != *"file://"* ]]; then
-              echo "Re-fixing $wrapper_props to Gradle 9.3.1"
-              sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_931}|" "$wrapper_props"
-            fi
-          done
+            echo "Re-fixing $wrapper_props to Gradle 9.3.1"
+            sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_931}|" "$wrapper_props"
+          fi
 
       - name: Add exec() back to Gradle Project (fix Gradle 9 incompatibility for Rider)
         run: |
