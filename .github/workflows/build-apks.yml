@@ -58,30 +58,35 @@ jobs:
             echo "WARNING: flutter.groovy not found at $FLUTTER_GROOVY"
           fi
 
-      - name: Download Gradle 9.3.1 locally (fix GitHub CDN 504)
+      - name: Download Gradle versions locally (fix GitHub CDN 504)
         run: |
-          # Download Gradle 9.3.1 from services.gradle.org to local file
           mkdir -p $HOME/gradle-download
           cd $HOME/gradle-download
+          # Gradle 8.13 for Customer and Vendor (works with their AGP)
+          wget -q https://services.gradle.org/distributions/gradle-8.13-all.zip -O gradle-8.13-all.zip
+          # Gradle 9.3.1 for Rider (required by Rider's AGP/Kotlin plugin)
           wget -q https://services.gradle.org/distributions/gradle-9.3.1-all.zip -O gradle-9.3.1-all.zip
-          echo "Gradle downloaded: $(ls -la gradle-9.3.1-all.zip)"
+          echo "Gradle versions downloaded:"
+          ls -la $HOME/gradle-download/
 
-      - name: Fix Gradle wrapper to use local file:// URL
+      - name: Fix Gradle wrapper to use local Gradle URLs
         run: |
-          # Use file:// URL to avoid GitHub CDN download issues
-          GRADLE_ZIP="file://$HOME/gradle-download/gradle-9.3.1-all.zip"
-          for proj in customer vendor rider; do
+          # Customer and Vendor use Gradle 8.13
+          for proj in customer vendor; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
-              echo "Original $wrapper_props:"
+              echo "Setting $wrapper_props to Gradle 8.13"
+              sed -i "s|^distributionUrl=.*$|distributionUrl=file://\$HOME/gradle-download/gradle-8.13-all.zip|" "$wrapper_props"
               cat "$wrapper_props"
-              sed -i "s|^distributionUrl=.*$|distributionUrl=$GRADLE_ZIP|" "$wrapper_props"
-              echo "Fixed $wrapper_props:"
-              cat "$wrapper_props"
-            else
-              echo "NOT FOUND: $wrapper_props"
             fi
           done
+          # Rider uses Gradle 9.3.1
+          wrapper_props="rider/android/gradle/wrapper/gradle-wrapper.properties"
+          if [ -f "$wrapper_props" ]; then
+            echo "Setting $wrapper_props to Gradle 9.3.1"
+            sed -i "s|^distributionUrl=.*$|distributionUrl=file://\$HOME/gradle-download/gradle-9.3.1-all.zip|" "$wrapper_props"
+            cat "$wrapper_props"
+          fi
 
       - name: Get Flutter dependencies (Customer)
         working-directory: customer
@@ -98,33 +103,26 @@ jobs:
         run: |
           flutter pub get
 
-      - name: Re-fix Gradle wrapper after pub get (in case Flutter regenerated it)
+      - name: Re-fix Gradle wrapper after pub get
         run: |
-          GRADLE_ZIP="file://$HOME/gradle-download/gradle-9.3.1-all.zip"
-          for proj in customer vendor rider; do
+          for proj in customer vendor; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
               current=$(grep "^distributionUrl=" "$wrapper_props")
-              echo "$wrapper_props: $current"
               if [[ "$current" != *"file://"* ]]; then
-                echo "Re-fixing $wrapper_props to use local Gradle"
-                sed -i "s|^distributionUrl=.*$|distributionUrl=$GRADLE_ZIP|" "$wrapper_props"
+                echo "Re-fixing $wrapper_props to Gradle 8.13"
+                sed -i "s|^distributionUrl=.*$|distributionUrl=file://\$HOME/gradle-download/gradle-8.13-all.zip|" "$wrapper_props"
               fi
             fi
           done
-
-      - name: Add exec() back to Gradle Project (fix Gradle 9 incompatibility)
-        run: |
-          mkdir -p $HOME/.gradle/init.d
-          cat > $HOME/.gradle/init.d/exec-fix.gradle << 'EOF'
-          allprojects { p ->
-              p.metaClass.exec = { String cmd ->
-                  def proc = ["sh", "-c", cmd].execute()
-                  proc.waitFor()
-                  return proc
-              }
-          }
-          EOF
+          wrapper_props="rider/android/gradle/wrapper/gradle-wrapper.properties"
+          if [ -f "$wrapper_props" ]; then
+            current=$(grep "^distributionUrl=" "$wrapper_props")
+            if [[ "$current" != *"file://"* ]]; then
+              echo "Re-fixing $wrapper_props to Gradle 9.3.1"
+              sed -i "s|^distributionUrl=.*$|distributionUrl=file://\$HOME/gradle-download/gradle-9.3.1-all.zip|" "$wrapper_props"
+            fi
+          fi
 
       - name: Build Customer APK
         working-directory: customer
