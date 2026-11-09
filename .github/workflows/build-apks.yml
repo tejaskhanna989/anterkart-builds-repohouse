@@ -72,11 +72,13 @@ jobs:
       - name: Fix Gradle wrapper to use local Gradle URLs
         run: |
           # Customer and Vendor use Gradle 8.13
+          GRADLE_813="file://${HOME}/gradle-download/gradle-8.13-all.zip"
+          GRADLE_931="file://${HOME}/gradle-download/gradle-9.3.1-all.zip"
           for proj in customer vendor; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
               echo "Setting $wrapper_props to Gradle 8.13"
-              sed -i "s|^distributionUrl=.*$|distributionUrl=file://\$HOME/gradle-download/gradle-8.13-all.zip|" "$wrapper_props"
+              sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_813}|" "$wrapper_props"
               cat "$wrapper_props"
             fi
           done
@@ -84,7 +86,7 @@ jobs:
           wrapper_props="rider/android/gradle/wrapper/gradle-wrapper.properties"
           if [ -f "$wrapper_props" ]; then
             echo "Setting $wrapper_props to Gradle 9.3.1"
-            sed -i "s|^distributionUrl=.*$|distributionUrl=file://\$HOME/gradle-download/gradle-9.3.1-all.zip|" "$wrapper_props"
+            sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_931}|" "$wrapper_props"
             cat "$wrapper_props"
           fi
 
@@ -105,13 +107,15 @@ jobs:
 
       - name: Re-fix Gradle wrapper after pub get
         run: |
+          GRADLE_813="file://${HOME}/gradle-download/gradle-8.13-all.zip"
+          GRADLE_931="file://${HOME}/gradle-download/gradle-9.3.1-all.zip"
           for proj in customer vendor; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
               current=$(grep "^distributionUrl=" "$wrapper_props")
               if [[ "$current" != *"file://"* ]]; then
                 echo "Re-fixing $wrapper_props to Gradle 8.13"
-                sed -i "s|^distributionUrl=.*$|distributionUrl=file://\$HOME/gradle-download/gradle-8.13-all.zip|" "$wrapper_props"
+                sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_813}|" "$wrapper_props"
               fi
             fi
           done
@@ -120,7 +124,7 @@ jobs:
             current=$(grep "^distributionUrl=" "$wrapper_props")
             if [[ "$current" != *"file://"* ]]; then
               echo "Re-fixing $wrapper_props to Gradle 9.3.1"
-              sed -i "s|^distributionUrl=.*$|distributionUrl=file://\$HOME/gradle-download/gradle-9.3.1-all.zip|" "$wrapper_props"
+              sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_931}|" "$wrapper_props"
             fi
           fi
 
