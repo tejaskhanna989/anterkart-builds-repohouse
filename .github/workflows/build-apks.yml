@@ -138,12 +138,16 @@ jobs:
         run: |
           FLUTTER_GRADLE_PLUGIN="$FLUTTER_BASE/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy"
           if [ -f "$FLUTTER_GRADLE_PLUGIN" ]; then
-            # Replace rootProject.exec { ... } closure with ProcessBuilder call compatible with Gradle 9
-            sed -i '/rootProject.exec {/,/^        }$/c\
-            def gradlewCmd = rootProject.projectDir.toString() + "/gradlew"\
-            def proc = [gradlewCmd, ":${subproject.name}:dependencies", "--write-locks"].execute()\
-            proc.directory = rootProject.projectDir\
-            proc.waitFor()' "$FLUTTER_GRADLE_PLUGIN"
+            python3 -c "
+import re
+with open('$FLUTTER_GRADLE_PLUGIN', 'r') as f:
+    content = f.read()
+# Replace rootProject.exec { ... } closure with ProcessBuilder compatible with Gradle 9
+content = re.sub(r'rootProject\.exec\s*\{\s*workingDir\(rootProject\.projectDir\)\s*executable\(gradlew\)\s*args\("[^"]*"\)\s*\}',
+                 'def gradlewCmd = rootProject.projectDir.toString() + \"/gradlew\"\\ndef proc = [gradlewCmd, \":\${subproject.name}:dependencies\", \"--write-locks\"].execute()\\ndef proc.directory = rootProject.projectDir\\ndef proc.waitFor()',
+                 content)
+with open('$FLUTTER_GRADLE_PLUGIN', 'w') as f:
+    f.write(content)
             echo "Patched exec() call in flutter.groovy for Gradle 9 compatibility"
           fi
 
