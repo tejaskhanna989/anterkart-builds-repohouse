@@ -58,18 +58,18 @@ jobs:
             echo "WARNING: flutter.groovy not found at $FLUTTER_GROOVY"
           fi
 
-      - name: Download Gradle 9.3.1 locally (fix GitHub CDN 504)
+      - name: Download Gradle 8.13 locally (fix GitHub CDN 504)
         run: |
-          # Download Gradle 9.3.1 from services.gradle.org to local file
+          # Download Gradle 8.13 from services.gradle.org to local file
           mkdir -p $HOME/gradle-download
           cd $HOME/gradle-download
-          wget -q https://services.gradle.org/distributions/gradle-9.3.1-all.zip -O gradle-9.3.1-all.zip
-          echo "Gradle downloaded: $(ls -la gradle-9.3.1-all.zip)"
+          wget -q https://services.gradle.org/distributions/gradle-8.13-all.zip -O gradle-8.13-all.zip
+          echo "Gradle downloaded: $(ls -la gradle-8.13-all.zip)"
 
       - name: Fix Gradle wrapper to use local file:// URL
         run: |
           # Use file:// URL to avoid GitHub CDN download issues
-          GRADLE_ZIP="file://$HOME/gradle-download/gradle-9.3.1-all.zip"
+          GRADLE_ZIP="file://$HOME/gradle-download/gradle-8.13-all.zip"
           for proj in customer vendor rider; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
@@ -100,7 +100,7 @@ jobs:
 
       - name: Re-fix Gradle wrapper after pub get (in case Flutter regenerated it)
         run: |
-          GRADLE_ZIP="file://$HOME/gradle-download/gradle-9.3.1-all.zip"
+          GRADLE_ZIP="file://$HOME/gradle-download/gradle-8.13-all.zip"
           for proj in customer vendor rider; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
