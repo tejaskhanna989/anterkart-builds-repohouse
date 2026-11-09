@@ -52,12 +52,13 @@ jobs:
         run: |
           # Patch Flutter's Gradle wrapper URL from GitHub CDN to services.gradle.org
           FLUTTER_ROOT="$HOME/flutter"
-          find "$FLUTTER_ROOT/packages/flutter_tools" -type f \( -name "*.dart" -o -name "*.groovy" -o -name "*.properties" -o -name "*.template" \) -print0 2>/dev/null | while IFS= read -r -d '' f; do
-            if grep -q "gradle-distributions" "$f" 2>/dev/null; then
-              echo "Patching Gradle URL in $f"
-              sed -i 's|https://github.com/gradle/gradle-distributions/releases/download/v[0-9.]*|https://services.gradle.org/distributions|g' "$f"
-            fi
+          # Patch all files in Flutter that reference the Gradle CDN
+          grep -rl "gradle-distributions\|github.com/gradle" "$FLUTTER_ROOT" 2>/dev/null | while read f; do
+            echo "Patching Gradle URL in $f"
+            sed -i 's|https://github.com/gradle/gradle-distributions/releases/download/v[0-9.]*|https://services.gradle.org/distributions|g' "$f"
           done
+          # Also patch all wrapper.properties in the workspace
+          find . -name "gradle-wrapper.properties" -exec sed -i 's|distributionUrl=.*|distributionUrl=https\://services.gradle.org/distributions/gradle-9.3.1-all.zip|' {} \;
           echo "Gradle wrapper URL patch complete"
 
       - name: Pre-download Gradle 8.13 distribution
