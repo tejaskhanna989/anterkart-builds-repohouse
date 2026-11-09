@@ -58,18 +58,18 @@ jobs:
             echo "WARNING: flutter.groovy not found at $FLUTTER_GROOVY"
           fi
 
-      - name: Download Gradle 8.13 locally (fix GitHub CDN 504)
+      - name: Download Gradle 9.3.1 locally (fix GitHub CDN 504)
         run: |
-          # Download Gradle 8.13 from services.gradle.org to local file
+          # Download Gradle 9.3.1 from services.gradle.org to local file
           mkdir -p $HOME/gradle-download
           cd $HOME/gradle-download
-          wget -q https://services.gradle.org/distributions/gradle-8.13-all.zip -O gradle-8.13-all.zip
-          echo "Gradle downloaded: $(ls -la gradle-8.13-all.zip)"
+          wget -q https://services.gradle.org/distributions/gradle-9.3.1-all.zip -O gradle-9.3.1-all.zip
+          echo "Gradle downloaded: $(ls -la gradle-9.3.1-all.zip)"
 
       - name: Fix Gradle wrapper to use local file:// URL
         run: |
           # Use file:// URL to avoid GitHub CDN download issues
-          GRADLE_ZIP="file://$HOME/gradle-download/gradle-8.13-all.zip"
+          GRADLE_ZIP="file://$HOME/gradle-download/gradle-9.3.1-all.zip"
           for proj in customer vendor rider; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
@@ -100,7 +100,7 @@ jobs:
 
       - name: Re-fix Gradle wrapper after pub get (in case Flutter regenerated it)
         run: |
-          GRADLE_ZIP="file://$HOME/gradle-download/gradle-8.13-all.zip"
+          GRADLE_ZIP="file://$HOME/gradle-download/gradle-9.3.1-all.zip"
           for proj in customer vendor rider; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
@@ -113,17 +113,29 @@ jobs:
             fi
           done
 
+      - name: Add exec() back to Gradle Project (fix Gradle 9 incompatibility)
+        run: |
+          cat > $HOME/gradle-download/exec-fix.gradle << 'EOF'
+          allprojects { p ->
+              p.metaClass.exec = { String cmd ->
+                  def proc = ["sh", "-c", cmd].execute()
+                  proc.waitFor()
+                  return proc
+              }
+          }
+          EOF
+
       - name: Build Customer APK
         working-directory: customer
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --release --split-per-abi --init-script $HOME/gradle-download/exec-fix.gradle
 
       - name: Build Vendor APK
         working-directory: vendor
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --release --split-per-abi --init-script $HOME/gradle-download/exec-fix.gradle
 
       - name: Build Rider APK
         working-directory: rider
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --release --split-per-abi --init-script $HOME/gradle-download/exec-fix.gradle
 
       - name: Upload Customer APK artifacts
         uses: actions/upload-artifact@v4
