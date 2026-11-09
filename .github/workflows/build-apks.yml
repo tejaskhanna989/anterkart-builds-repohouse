@@ -43,8 +43,6 @@ jobs:
             FLUTTER_BASE="$(dirname "$(dirname "$(which flutter)")")"
           fi
           FLUTTER_GROOVY="$FLUTTER_BASE/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy"
-          echo "Flutter base: $FLUTTER_BASE"
-          echo "Flutter groovy: $FLUTTER_GROOVY"
           if [ -f "$FLUTTER_GROOVY" ]; then
             cp "$FLUTTER_GROOVY" "$FLUTTER_GROOVY.backup"
             python3 .github/scripts/patch_flutter_groovy.py "$FLUTTER_GROOVY"
@@ -68,21 +66,17 @@ jobs:
             echo "Proguard patch complete"
           fi
 
-      - name: Download Gradle versions locally (fix GitHub CDN 504)
+      - name: Download Gradle 8.13 locally (fix GitHub CDN 504)
         run: |
           mkdir -p $HOME/gradle-download
           cd $HOME/gradle-download
           wget -q https://services.gradle.org/distributions/gradle-8.13-all.zip -O gradle-8.13-all.zip
-          wget -q https://services.gradle.org/distributions/gradle-9.3.1-all.zip -O gradle-9.3.1-all.zip
-          echo "Gradle versions downloaded:"
-          ls -la $HOME/gradle-download/
+          echo "Gradle downloaded: $(ls -la gradle-8.13-all.zip)"
 
-      - name: Fix Gradle wrapper to use local Gradle URLs
+      - name: Fix Gradle wrapper to use local Gradle 8.13 URL
         run: |
           GRADLE_813="file://${HOME}/gradle-download/gradle-8.13-all.zip"
-          GRADLE_931="file://${HOME}/gradle-download/gradle-9.3.1-all.zip"
-          # Customer and Vendor use Gradle 8.13
-          for proj in customer vendor; do
+          for proj in customer vendor rider; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
               echo "Setting $wrapper_props to Gradle 8.13"
@@ -90,13 +84,6 @@ jobs:
               cat "$wrapper_props"
             fi
           done
-          # Rider uses Gradle 9.3.1 (required by AGP 8.8+ from its dependencies)
-          wrapper_props="rider/android/gradle/wrapper/gradle-wrapper.properties"
-          if [ -f "$wrapper_props" ]; then
-            echo "Setting $wrapper_props to Gradle 9.3.1"
-            sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_931}|" "$wrapper_props"
-            cat "$wrapper_props"
-          fi
 
       - name: Get Flutter dependencies (Customer)
         working-directory: customer
@@ -116,42 +103,13 @@ jobs:
       - name: Re-fix Gradle wrapper after pub get
         run: |
           GRADLE_813="file://${HOME}/gradle-download/gradle-8.13-all.zip"
-          GRADLE_931="file://${HOME}/gradle-download/gradle-9.3.1-all.zip"
-          for proj in customer vendor; do
+          for proj in customer vendor rider; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
               echo "Re-fixing $wrapper_props to Gradle 8.13"
               sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_813}|" "$wrapper_props"
             fi
           done
-          wrapper_props="rider/android/gradle/wrapper/gradle-wrapper.properties"
-          if [ -f "$wrapper_props" ]; then
-            echo "Re-fixing $wrapper_props to Gradle 9.3.1"
-            sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_931}|" "$wrapper_props"
-          fi
-
-      - name: Patch Flutter Gradle Plugin for Gradle 9 compatibility (fix exec() call)
-        run: |
-          FLUTTER_GRADLE_PLUGIN="$FLUTTER_BASE/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy"
-          if [ -f "$FLUTTER_GRADLE_PLUGIN" ]; then
-            cat > /tmp/patch_flutter_groovy.py << 'PYEOF'
-import re
-import sys
-flut_gradle = sys.argv[1]
-with open(flut_gradle, 'r') as f:
-    content = f.read()
-# Replace rootProject.exec { ... } closure with ProcessBuilder compatible with Gradle 9
-pattern = re.compile(r'rootProject\.exec\s*\{[^}]*\}', re.DOTALL)
-new_content = pattern.sub(
-    'def gradlewCmd = rootProject.projectDir.toString() + "/gradlew"\ndef proc = [gradlewCmd, ":${subproject.name}:dependencies", "--write-locks"].execute()\nproc.directory = rootProject.projectDir\nproc.waitFor()',
-    content
-)
-with open(flut_gradle, 'w') as f:
-    f.write(new_content)
-print("Patched exec() call in flutter.groovy for Gradle 9 compatibility")
-PYEOF
-            python3 /tmp/patch_flutter_groovy.py "$FLUTTER_GRADLE_PLUGIN"
-          fi
 
       - name: Build Customer APK
         working-directory: customer
