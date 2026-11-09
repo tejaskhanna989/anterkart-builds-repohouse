@@ -57,7 +57,6 @@ jobs:
             echo "WARNING: flutter.groovy not found at $FLUTTER_GROOVY"
           fi
 
-          # Patch Flutter Gradle Plugin to use proguard-android-optimize.txt instead of deprecated proguard-android.txt
           FLUTTER_GRADLE_PLUGIN="$FLUTTER_BASE/packages/flutter_tools/gradle"
           if [ -d "$FLUTTER_GRADLE_PLUGIN" ]; then
             find "$FLUTTER_GRADLE_PLUGIN" -type f \( -name "*.gradle" -o -name "*.groovy" -o -name "*.kt" \) | while read f; do
@@ -82,7 +81,6 @@ jobs:
         run: |
           GRADLE_813="file://${HOME}/gradle-download/gradle-8.13-all.zip"
           GRADLE_931="file://${HOME}/gradle-download/gradle-9.3.1-all.zip"
-          # Customer and Vendor use Gradle 8.13
           for proj in customer vendor; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
@@ -91,7 +89,6 @@ jobs:
               cat "$wrapper_props"
             fi
           done
-          # Rider uses Gradle 9.3.1 (required by AGP 8.8+ from its dependencies)
           wrapper_props="rider/android/gradle/wrapper/gradle-wrapper.properties"
           if [ -f "$wrapper_props" ]; then
             echo "Setting $wrapper_props to Gradle 9.3.1"
@@ -118,7 +115,6 @@ jobs:
         run: |
           GRADLE_813="file://${HOME}/gradle-download/gradle-8.13-all.zip"
           GRADLE_931="file://${HOME}/gradle-download/gradle-9.3.1-all.zip"
-          # Customer and Vendor use Gradle 8.13
           for proj in customer vendor; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
@@ -126,7 +122,6 @@ jobs:
               sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_813}|" "$wrapper_props"
             fi
           done
-          # Rider uses Gradle 9.3.1
           wrapper_props="rider/android/gradle/wrapper/gradle-wrapper.properties"
           if [ -f "$wrapper_props" ]; then
             echo "Re-fixing $wrapper_props to Gradle 9.3.1"
@@ -137,23 +132,12 @@ jobs:
         run: |
           FLUTTER_GRADLE_PLUGIN="$FLUTTER_BASE/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy"
           if [ -f "$FLUTTER_GRADLE_PLUGIN" ]; then
-            python3 << 'PYEOF'
-import re
-with open(FLUTTER_GRADLE_PLUGIN, 'r') as f:
-    content = f.read()
-# Replace rootProject.exec { ... } closure with ProcessBuilder compatible with Gradle 9
-new_content = re.sub(
-    r'rootProject\.exec\s*\{\s*workingDir\(rootProject\.projectDir\)\s*executable\(gradlew\)\s*args\([^)]*\)\s*\}',
-    '''def gradlewCmd = rootProject.projectDir.toString() + "/gradlew"
-def proc = [gradlewCmd, ":${subproject.name}:dependencies", "--write-locks"].execute()
-proc.directory = rootProject.projectDir
-proc.waitFor()''',
-    content
-)
-with open(FLUTTER_GRADLE_PLUGIN, 'w') as f:
-    f.write(new_content)
-print("Patched exec() call in flutter.groovy for Gradle 9 compatibility")
-PYEOF
+            sed -i '/rootProject\.exec {/,/^}$/c\
+def gradlewCmd = rootProject.projectDir.toString() + "/gradlew"\
+def proc = [gradlewCmd, ":${subproject.name}:dependencies", "--write-locks"].execute()\
+proc.directory = rootProject.projectDir\
+proc.waitFor()' "$FLUTTER_GRADLE_PLUGIN"
+            echo "Patched exec() call in flutter.groovy for Gradle 9 compatibility"
           fi
 
       - name: Build Customer APK
@@ -166,7 +150,7 @@ PYEOF
 
       - name: Build Rider APK
         working-directory: rider
-        run: flutter build apk --release --split-per-abi -PskipDependencyChecks=true
+        run: flutter build apk --release --split-per-abi
 
       - name: Upload Customer APK artifacts
         uses: actions/upload-artifact@v4
