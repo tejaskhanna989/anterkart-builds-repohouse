@@ -146,6 +146,8 @@ jobs:
             proc.waitFor()' "$FLUTTER_GRADLE_PLUGIN"
             echo "Patched exec() call in flutter.groovy for Gradle 9 compatibility"
           fi
+
+      - name: Build Customer APK
         working-directory: customer
         run: flutter build apk --release --split-per-abi
 
