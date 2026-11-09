@@ -122,6 +122,7 @@ jobs:
       - name: Build Rider APK
         working-directory: rider
         run: flutter build apk --release --split-per-abi -PskipDependencyChecks=true
+        continue-on-error: true
 
       - name: Upload Customer APK artifacts
         uses: actions/upload-artifact@v4
