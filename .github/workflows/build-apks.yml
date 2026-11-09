@@ -144,15 +144,10 @@ jobs:
         run: |
           mkdir -p $HOME/.gradle/init.d
           cat > $HOME/.gradle/init.d/exec-fix.gradle << 'EOF'
-          import groovy.lang.ExpandoMetaClass
-          allprojects { project ->
-              project.metaClass = new ExpandoMetaClass(project, true, true)
-              project.metaClass.exec = { String cmd ->
-                  def proc = ["sh", "-c", cmd].execute()
-                  proc.waitFor()
-                  return proc
-              }
-              project.metaClass.initialize()
+          Object.metaClass.exec = { String cmd ->
+              def proc = ["sh", "-c", cmd].execute()
+              proc.waitFor()
+              return proc
           }
           EOF
 
