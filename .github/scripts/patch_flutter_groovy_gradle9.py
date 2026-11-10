@@ -1,13 +1,8 @@
-#!/usr/bin/env python3
-"""
-Patch Flutter Gradle Plugin for Gradle 9 compatibility.
-Replaces project.exec() calls with ProcessBuilder-compatible code.
-"""
 import re
 import sys
 import os
 
-# Get the flutter.groovy path from command line argument
+# Get the flutter.groovy path from command line argument, or use default
 if len(sys.argv) > 1:
     flutter_groovy = sys.argv[1]
 else:
@@ -20,24 +15,10 @@ with open(flutter_groovy, 'r') as f:
 
 print(f'Original file size: {len(content)}')
 
-# Pattern 1: rootProject.exec { workingDir(...) executable(...) args(...) }
-pattern1 = re.compile(
-    r'rootProject\.exec\s*\{\s*'
-    r'workingDir\(rootProject\.projectDir\)\s*'
-    r'executable\(gradlew\)\s*'
-    r'args\([^)]*\)\s*\}',
-    re.DOTALL
-)
-
-# Pattern 2: rootProject.exec { ... } more general pattern
-pattern2 = re.compile(
-    r'rootProject\.exec\s*\{[^}]*\}',
-    re.DOTALL
-)
-
-# Pattern 3: project.exec { ... } (more general)
-pattern3 = re.compile(
-    r'project\.exec\s*\{[^}]*\}',
+# Replace all occurrences of project.exec { ... } with ProcessBuilder-compatible code
+# Pattern: project.exec { ... }
+pattern = re.compile(
+    r'(?:project|rootProject)\.exec\s*\{[^}]*\}',
     re.DOTALL
 )
 
@@ -46,13 +27,7 @@ def proc = [gradlewCmd, ":${subproject.name}:dependencies", "--write-locks"].exe
 proc.directory = rootProject.projectDir
 proc.waitFor()'''
 
-new_content, count = pattern1.subn(new_code, content)
-
-if count == 0:
-    new_content, count = pattern2.subn(new_code, content)
-
-if count == 0:
-    new_content, count = pattern3.subn(new_code, content)
+new_content, count = pattern.subn(new_code, content)
 
 if count > 0:
     print(f"Patched {count} occurrence(s) of exec() in flutter.groovy")
@@ -61,8 +36,10 @@ else:
     # Debug: show what's in the file
     if 'exec(' in content:
         print("Found 'exec(' in file")
-        idx = content.index('exec(')
-        print(f"Context around first exec(): ...{content[max(0,idx-100):idx+200]}...")
+        # Find all occurrences
+        for m in re.finditer(r'\w+\.exec\s*\{', content):
+            idx = m.start()
+            print(f"  Found 'exec()' at position {idx}: ...{content[max(0,idx-50):idx+150]}...")
     else:
         print("'exec(' not found in file")
         # Show first 500 chars of file to understand its structure
