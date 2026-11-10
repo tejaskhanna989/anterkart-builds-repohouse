@@ -1,12 +1,12 @@
+#!/usr/bin/env python3
+"""
+Patch Flutter Gradle Plugin for Gradle 9 compatibility.
+Replaces project.exec() calls with ProcessBuilder-compatible code.
+"""
 import re
 import sys
-import os
 
-# Get the flutter.groovy path from command line argument, or use default
-if len(sys.argv) > 1:
-    flutter_groovy = sys.argv[1]
-else:
-    flutter_groovy = r'/opt/hostedtoolcache/flutter/stable-3.24.3-x64/flutter/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy'
+flutter_groovy = sys.argv[1] if len(sys.argv) > 1 else '/opt/hostedtoolcache/flutter/stable-3.24.3-x64/flutter/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy'
 
 print(f'Patching: {flutter_groovy}')
 
@@ -15,10 +15,9 @@ with open(flutter_groovy, 'r') as f:
 
 print(f'Original file size: {len(content)}')
 
-# Replace all occurrences of project.exec { ... } with ProcessBuilder-compatible code
-# Pattern: project.exec { ... }
+# Pattern: project.exec { ... } or rootProject.exec { ... }
 pattern = re.compile(
-    r'(?:project|rootProject)\.exec\s*\{[^}]*\}',
+    r'(?:rootProject|project)\.exec\s*\{[^}]*\}',
     re.DOTALL
 )
 
@@ -33,16 +32,13 @@ if count > 0:
     print(f"Patched {count} occurrence(s) of exec() in flutter.groovy")
 else:
     print("WARNING: No exec() call found to patch!")
-    # Debug: show what's in the file
     if 'exec(' in content:
         print("Found 'exec(' in file")
-        # Find all occurrences
         for m in re.finditer(r'\w+\.exec\s*\{', content):
             idx = m.start()
-            print(f"  Found 'exec()' at position {idx}: ...{content[max(0,idx-50):idx+150]}...")
+            print(f"  Found 'exec()' at position {idx}: ...{content[max(0,idx-50):idx+200]}...")
     else:
         print("'exec(' not found in file")
-        # Show first 500 chars of file to understand its structure
         print(f"First 500 chars: ...{content[:500]}...")
 
 with open(flutter_groovy, 'w') as f:
