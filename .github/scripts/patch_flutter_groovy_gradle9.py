@@ -1,8 +1,13 @@
+#!/usr/bin/env python3
+"""
+Patch Flutter Gradle Plugin for Gradle 9 compatibility.
+Replaces project.exec() calls with ProcessBuilder-compatible code.
+"""
 import re
 import sys
 import os
 
-# Get the flutter.groovy path from command line argument, or use default
+# Get the flutter.groovy path from command line argument
 if len(sys.argv) > 1:
     flutter_groovy = sys.argv[1]
 else:
@@ -15,28 +20,53 @@ with open(flutter_groovy, 'r') as f:
 
 print(f'Original file size: {len(content)}')
 
-# Replace rootProject.exec { ... } closure with ProcessBuilder compatible with Gradle 9
-# The pattern matches: rootProject.exec { workingDir(rootProject.projectDir) executable(gradlew) args(...) }
-pattern = re.compile(r'rootProject\.exec\s*\{\s*workingDir\(rootProject\.projectDir\)\s*executable\(gradlew\)\s*args\([^)]*\)\s*\}')
+# Pattern 1: rootProject.exec { workingDir(...) executable(...) args(...) }
+pattern1 = re.compile(
+    r'rootProject\.exec\s*\{\s*'
+    r'workingDir\(rootProject\.projectDir\)\s*'
+    r'executable\(gradlew\)\s*'
+    r'args\([^)]*\)\s*\}',
+    re.DOTALL
+)
+
+# Pattern 2: rootProject.exec { ... } more general pattern
+pattern2 = re.compile(
+    r'rootProject\.exec\s*\{[^}]*\}',
+    re.DOTALL
+)
+
+# Pattern 3: project.exec { ... } (more general)
+pattern3 = re.compile(
+    r'project\.exec\s*\{[^}]*\}',
+    re.DOTALL
+)
 
 new_code = '''def gradlewCmd = rootProject.projectDir.toString() + "/gradlew"
 def proc = [gradlewCmd, ":${subproject.name}:dependencies", "--write-locks"].execute()
 proc.directory = rootProject.projectDir
 proc.waitFor()'''
 
-new_content, count = pattern.subn(new_code, content)
+new_content, count = pattern1.subn(new_code, content)
+
+if count == 0:
+    new_content, count = pattern2.subn(new_code, content)
+
+if count == 0:
+    new_content, count = pattern3.subn(new_code, content)
 
 if count > 0:
     print(f"Patched {count} occurrence(s) of exec() in flutter.groovy")
 else:
     print("WARNING: No exec() call found to patch!")
-    # Let's see what's in the file around rootProject.exec
-    if 'rootProject.exec' in content:
-        print("Found 'rootProject.exec' in file")
-        idx = content.index('rootProject.exec')
-        print(f"Context: ...{content[idx:idx+200]}...")
+    # Debug: show what's in the file
+    if 'exec(' in content:
+        print("Found 'exec(' in file")
+        idx = content.index('exec(')
+        print(f"Context around first exec(): ...{content[max(0,idx-100):idx+200]}...")
     else:
-        print("'rootProject.exec' not found in file")
+        print("'exec(' not found in file")
+        # Show first 500 chars of file to understand its structure
+        print(f"First 500 chars: ...{content[:500]}...")
 
 with open(flutter_groovy, 'w') as f:
     f.write(new_content)
