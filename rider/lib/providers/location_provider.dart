@@ -25,7 +25,7 @@ class LocationProvider extends ChangeNotifier {
         distanceFilter: 10, // Update every 10 meters
       ),
     ).listen((Position position) {
-      _updateLocation(position.latitude, position.longitude);
+      _updateLocation();
     });
 
     // Also keep timer as fallback

@@ -44,4 +44,19 @@ class OneSignalService {
       await OneSignal.Notifications.requestPermission(true);
     } catch (_) {}
   }
+
+  static void addListeners() {
+    if (!isEnabled) return;
+    try {
+      OneSignal.Notifications.addNotificationOpenedListener((_) {});
+      OneSignal.Notifications.addNotificationReceivedListener((_) {});
+    } catch (_) {}
+  }
+
+  static set onForegroundPush(void Function()? callback) {
+    if (!isEnabled) return;
+    try {
+      OneSignal.Notifications.addNotificationOpenedListener((_) => callback?.call());
+    } catch (_) {}
+  }
 }
