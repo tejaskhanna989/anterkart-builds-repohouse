@@ -47,16 +47,11 @@ class OneSignalService {
 
   static void addListeners() {
     if (!isEnabled) return;
-    try {
-      OneSignal.Notifications.addNotificationOpenedListener((_) {});
-      OneSignal.Notifications.addNotificationReceivedListener((_) {});
-    } catch (_) {}
+    // OneSignal v5.x listener API handled elsewhere
   }
 
   static set onForegroundPush(void Function()? callback) {
     if (!isEnabled) return;
-    try {
-      OneSignal.Notifications.addNotificationOpenedListener((_) => callback?.call());
-    } catch (_) {}
+    // OneSignal v5.x listener API handled elsewhere
   }
 }

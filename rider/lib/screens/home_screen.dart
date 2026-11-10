@@ -348,7 +348,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _advanceOrder(int orderId, String status) async {
 
-    final r = await context.read<OrderProvider>().updateStatus(orderId, status);
+    final r = await context.read<OrderProvider>().updateStatusEx(orderId, status);
 
     _snack(r['message'] ?? (r['ok'] as bool ? 'Done' : 'Failed'), r['ok'] as bool);
 
