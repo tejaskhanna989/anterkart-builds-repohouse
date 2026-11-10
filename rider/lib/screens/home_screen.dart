@@ -226,7 +226,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 8),
 
-            const Text('Respond now — the alarm keeps ringing until you accept or decline.', style: TextStyle(color: Colors.grey[700], fontSize: 14)),
+            Text('Respond now — the alarm keeps ringing until you accept or decline.', style: TextStyle(color: Colors.grey[700], fontSize: 14)),
 
           ]),
 
