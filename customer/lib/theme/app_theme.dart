@@ -36,7 +36,7 @@ ThemeData buildAppTheme() {
       surfaceTintColor: Colors.transparent,
       centerTitle: false,
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: AppColors.card,
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
