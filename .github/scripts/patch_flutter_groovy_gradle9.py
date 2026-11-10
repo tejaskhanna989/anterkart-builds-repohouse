@@ -7,58 +7,55 @@ import re
 import sys
 import os
 
-# Get the Flutter Gradle Plugin directory from command line argument
+# Get the Flutter root directory from command line argument
 if len(sys.argv) > 1:
-    flutter_gradle_dir = sys.argv[1]
+    flutter_root = sys.argv[1]
 else:
-    flutter_gradle_dir = r'/opt/hostedtoolcache/flutter/stable-3.24.3-x64/flutter/packages/flutter_tools/gradle'
+    flutter_groovy = '/opt/hostedtoolcache/flutter/stable-3.24.3-x64/flutter/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy'
 
-print(f'Patching Flutter Gradle Plugin in: {flutter_gradle_dir}')
+print(f'Patching Flutter Gradle Plugin: {flutter_groovy}')
 
-# Find all Gradle-related files (.groovy, .gradle.kts, .kt)
-flutter_files = []
-for root, dirs, files in os.walk(flutter_gradle_dir):
-    for file in files:
-        if file.endswith(('.groovy', '.gradle.kts', '.gradle', '.kt')):
-            flutter_files.append(os.path.join(root, file))
+with open(flutter_groovy, 'r') as f:
+    content = f.read()
 
-print(f'Found {len(flutter_files)} Gradle files in Flutter plugin')
+print(f'Original file size: {len(content)}')
 
-total_patched = 0
+# Pattern 1: project.exec { workingDir(...) executable(gradlew) args(...) }
+pattern1 = re.compile(
+    r'project\.exec\s*\{\s*workingDir\(project\.projectDir\)\s*executable\(gradlew\)\s*args\([^)]*\)\s*\}',
+    re.DOTALL
+)
 
-for flutter_file in flutter_files:
-    with open(flutter_file, 'r') as f:
-        content = f.read()
+# Pattern 2: project.exec { ... } more general pattern  
+pattern2 = re.compile(
+    r'project\.exec\s*\{[^}]*\}',
+    re.DOTALL
+)
 
-    # Pattern: project.exec { ... } or rootProject.exec { ... }
-    pattern = re.compile(
-        r'(?:rootProject|project)\.exec\s*\{[^}]*\}',
-        re.DOTALL
-    )
-
-    new_code = '''def gradlewCmd = rootProject.projectDir.toString() + "/gradlew"
+new_code = '''def gradlewCmd = rootProject.projectDir.toString() + "/gradlew"
 def proc = [gradlewCmd, ":${subproject.name}:dependencies", "--write-locks"].execute()
 proc.directory = rootProject.projectDir
 proc.waitFor()'''
 
-    new_content, count = pattern.subn(new_code, content)
+new_content, count = pattern1.subn(new_code, content)
 
-    if count > 0:
-        print(f"Patched {count} occurrence(s) of exec() in {flutter_file}")
-        with open(flutter_file, 'w') as f:
-            f.write(new_content)
-        total_patched += count
+if count == 0:
+    new_content, count = pattern2.subn(new_code, content)
 
 if count > 0:
-    print(f"\nTotal: Patched {count} occurrence(s) of exec() in Flutter Gradle Plugin")
+    print(f"Patched {count} occurrence(s) of exec() in flutter.groovy")
 else:
-    print("WARNING: No exec() calls found to patch!")
-    print("Searching for 'exec(' in Flutter Gradle Plugin files...")
-    for flutter_file in flutter_files:
-        with open(flutter_file, 'r') as f:
-            content = f.read()
-        if 'exec(' in content:
-            print(f"  Found 'exec(' in {flutter_file}")
-            for m in re.finditer(r'\w+\.exec\s*\{', content):
-                idx = m.start()
-                print(f"    'exec()' at position {idx}: ...{content[max(0,idx-50):idx+200]}...")
+    print("WARNING: No exec() call found to patch!")
+    if 'exec(' in content:
+        print("Found 'exec(' in file")
+        for m in re.finditer(r'\w+\.exec\s*\{', content):
+            idx = m.start()
+            print(f"  Found 'exec()' at position {idx}: ...{content[max(0,idx-50):idx+200]}...")
+    else:
+        print("'exec(' not found in file")
+        print(f"First 500 chars: ...{content[:500]}...")
+
+with open(flutter_groovy, 'w') as f:
+    f.write(new_content)
+
+print(f'New file size: {len(new_content)}')
