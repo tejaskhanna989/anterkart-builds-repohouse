@@ -33,41 +33,6 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Patch Flutter SDK gradle plugin (fix Groovy QName/XmlParser and Proguard)
-        run: |
-          if [ -n "$FLUTTER_ROOT" ]; then
-            FLUTTER_BASE="$FLUTTER_ROOT"
-          elif [ -d "$HOME/flutter" ]; then
-            FLUTTER_BASE="$HOME/flutter"
-          else
-            FLUTTER_BASE="$(dirname "$(dirname "$(which flutter)")")"
-          fi
-          FLUTTER_GROOVY="$FLUTTER_BASE/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy"
-          echo "Flutter base: $FLUTTER_BASE"
-          echo "Flutter groovy: $FLUTTER_GROOVY"
-          if [ -f "$FLUTTER_GROOVY" ]; then
-            cp "$FLUTTER_GROOVY" "$FLUTTER_GROOVY.backup"
-            python3 .github/scripts/patch_flutter_groovy.py "$FLUTTER_GROOVY"
-            if [ $? -ne 0 ]; then
-              echo "Python patch script failed"
-              exit 1
-            fi
-            echo "Patched flutter.groovy successfully"
-          else
-            echo "WARNING: flutter.groovy not found at $FLUTTER_GROOVY"
-          fi
-
-          FLUTTER_GRADLE_PLUGIN="$FLUTTER_BASE/packages/flutter_tools/gradle"
-          if [ -d "$FLUTTER_GRADLE_PLUGIN" ]; then
-            find "$FLUTTER_GRADLE_PLUGIN" -type f \( -name "*.gradle" -o -name "*.groovy" -o -name "*.kt" \) | while read f; do
-              if grep -q "proguard-android.txt" "$f" 2>/dev/null; then
-                echo "Patching proguard config in $f"
-                sed -i 's/proguard-android\.txt/proguard-android-optimize.txt/g' "$f"
-              fi
-            done
-            echo "Proguard patch complete"
-          fi
-
       - name: Download Gradle 8.13 locally (fix GitHub CDN 504)
         run: |
           mkdir -p $HOME/gradle-download
