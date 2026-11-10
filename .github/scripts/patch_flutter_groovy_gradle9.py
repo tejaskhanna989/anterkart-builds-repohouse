@@ -5,30 +5,24 @@ Replaces project.exec() calls with ProcessBuilder-compatible code.
 """
 import re
 import sys
-import os
 
-# Get the Flutter root directory from command line argument
+# Get the Flutter Gradle plugin path from command line argument
 if len(sys.argv) > 1:
-    flutter_root = sys.argv[1]
+    flutter_groovy = sys.argv[1]
 else:
     flutter_groovy = '/opt/hostedtoolcache/flutter/stable-3.24.3-x64/flutter/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy'
 
-print(f'Patching Flutter Gradle Plugin: {flutter_groovy}')
+print(f'Patching: {flutter_groovy}')
 
 with open(flutter_groovy, 'r') as f:
     content = f.read()
 
 print(f'Original file size: {len(content)}')
 
-# Pattern 1: project.exec { workingDir(...) executable(gradlew) args(...) }
-pattern1 = re.compile(
-    r'project\.exec\s*\{\s*workingDir\(project\.projectDir\)\s*executable\(gradlew\)\s*args\([^)]*\)\s*\}',
-    re.DOTALL
-)
-
-# Pattern 2: project.exec { ... } more general pattern  
-pattern2 = re.compile(
-    r'project\.exec\s*\{[^}]*\}',
+# Pattern: project.exec { ... } or rootProject.exec { ... }
+# Match any project.exec{ ... } block
+pattern = re.compile(
+    r'(?:rootProject|project)\.exec\s*\{[^}]*\}',
     re.DOTALL
 )
 
@@ -37,10 +31,7 @@ def proc = [gradlewCmd, ":${subproject.name}:dependencies", "--write-locks"].exe
 proc.directory = rootProject.projectDir
 proc.waitFor()'''
 
-new_content, count = pattern1.subn(new_code, content)
-
-if count == 0:
-    new_content, count = pattern2.subn(new_code, content)
+new_content, count = pattern.subn(new_code, content)
 
 if count > 0:
     print(f"Patched {count} occurrence(s) of exec() in flutter.groovy")
