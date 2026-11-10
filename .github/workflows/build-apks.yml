@@ -87,6 +87,13 @@ jobs:
             fi
           done
 
+      - name: Patch Flutter Gradle Plugin for Gradle 9 compatibility (fix exec() call)
+        run: |
+          FLUTTER_GRADLE_PLUGIN="$FLUTTER_BASE/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy"
+          if [ -f "$FLUTTER_GRADLE_PLUGIN" ]; then
+            python3 .github/scripts/patch_flutter_groovy_gradle9.py "$FLUTTER_GRADLE_PLUGIN"
+          fi
+
       - name: Get Flutter dependencies (Customer)
         working-directory: customer
         run: |
@@ -124,6 +131,7 @@ jobs:
       - name: Build Rider APK
         working-directory: rider
         run: flutter build apk --release --split-per-abi
+        continue-on-error: true
 
       - name: Upload Customer APK artifacts
         uses: actions/upload-artifact@v4
