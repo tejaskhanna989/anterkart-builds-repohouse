@@ -153,3 +153,27 @@ jobs:
           name: rider-apk
           path: rider/build/app/outputs/flutter-apk/
           retention-days: 7
+
+      - name: Deploy APKs to VPS
+        if: github.ref == 'refs/heads/main'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq sshpass
+          VPS_HOST="91.108.107.50"
+          VPS_PORT="65002"
+          VPS_USER="root"
+          VPS_PASS="${{ secrets.OTAMZO_SSH_PASSWORD }}"
+          VPS_DIR="/var/www/apk"
+          
+          echo "Creating remote directory..."
+          sshpass -p "$VPS_PASS" ssh -o StrictHostKeyChecking=no -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" "mkdir -p $VPS_DIR/customer $VPS_DIR/vendor $VPS_DIR/rider"
+          
+          echo "Deploying Customer APKs..."
+          sshpass -p "$VPS_PASS" scp -o StrictHostKeyChecking=no -P "$VPS_PORT" customer/build/app/outputs/flutter-apk/*.apk "$VPS_USER@$VPS_HOST:$VPS_DIR/customer/"
+          
+          echo "Deploying Vendor APKs..."
+          sshpass -p "$VPS_PASS" scp -o StrictHostKeyChecking=no -P "$VPS_PORT" vendor/build/app/outputs/flutter-apk/*.apk "$VPS_USER@$VPS_HOST:$VPS_DIR/vendor/"
+          
+          echo "Deploying Rider APKs..."
+          sshpass -p "$VPS_PASS" scp -o StrictHostKeyChecking=no -P "$VPS_PORT" rider/build/app/outputs/flutter-apk/*.apk "$VPS_USER@$VPS_HOST:$VPS_DIR/rider/"
+          
+          echo "Deployment complete!"
