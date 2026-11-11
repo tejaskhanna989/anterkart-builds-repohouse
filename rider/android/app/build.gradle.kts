@@ -57,4 +57,5 @@ flutter {
 
 dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("com.onesignal:OneSignal:4.8.2")
 }
