@@ -8,7 +8,7 @@ import java.util.Properties
 
 android {
     namespace = "com.otamzo.rider"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 34
     ndkVersion = "27.0.12077973"
 
     compileOptions {
