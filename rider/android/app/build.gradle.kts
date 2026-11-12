@@ -51,11 +51,17 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
+
 flutter {
     source = "../.."
 }
 
 dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    implementation("com.onesignal:OneSignal:4.8.2")
+    implementation("com.onesignal:OneSignal:[5.0.0, 5.99.99]")
 }
