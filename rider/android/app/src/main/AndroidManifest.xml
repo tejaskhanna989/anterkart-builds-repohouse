@@ -4,7 +4,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <application
-        android:name="io.flutter.embedding.android.FlutterApplication"
+        android:name="android.app.Application"
         android:label="Otamzo Rider"
         android:icon="@mipmap/ic_launcher">
         <meta-data
