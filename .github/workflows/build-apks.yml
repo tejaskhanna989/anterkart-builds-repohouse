@@ -79,15 +79,15 @@ jobs:
 
       - name: Build Customer APK
         working-directory: customer
-        run: flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
+        run: flutter build apk --release --split-per-abi
 
       - name: Build Vendor APK
         working-directory: vendor
-        run: flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
+        run: flutter build apk --release --split-per-abi
 
       - name: Build Rider APK
         working-directory: rider
-        run: flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
+        run: flutter build apk --release --split-per-abi
         continue-on-error: true
 
       - name: Upload Customer APK artifacts
