@@ -21,32 +21,32 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Set up Java 17
+      - name: Set up Java 11
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '11'
 
       - name: Install Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Download Gradle 8.13 locally (compatible with Java 17)
+      - name: Download Gradle 9.3.1 locally (required by Android Gradle Plugin)
         run: |
           mkdir -p $HOME/gradle-download
           cd $HOME/gradle-download
-          wget -q https://services.gradle.org/distributions/gradle-8.13-all.zip -O gradle-8.13-all.zip
-          echo "Gradle downloaded: $(ls -la gradle-8.13-all.zip)"
+          wget -q https://services.gradle.org/distributions/gradle-9.3.1-all.zip -O gradle-9.3.1-all.zip
+          echo "Gradle downloaded: $(ls -la gradle-9.3.1-all.zip)"
 
-      - name: Fix Gradle wrapper to use Gradle 8.13 for all apps
+      - name: Fix Gradle wrapper to use Gradle 9.3.1 for all apps
         run: |
-          GRADLE_813="file://${HOME}/gradle-download/gradle-8.13-all.zip"
+          GRADLE_931="file://${HOME}/gradle-download/gradle-9.3.1-all.zip"
           for proj in customer vendor rider; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
-              echo "Setting $wrapper_props to Gradle 8.13"
-              sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_813}|" "$wrapper_props"
+              echo "Setting $wrapper_props to Gradle 9.3.1"
+              sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_931}|" "$wrapper_props"
               cat "$wrapper_props"
             fi
           done
@@ -68,12 +68,12 @@ jobs:
 
       - name: Re-fix Gradle wrapper after pub get
         run: |
-          GRADLE_813="file://${HOME}/gradle-download/gradle-8.13-all.zip"
+          GRADLE_931="file://${HOME}/gradle-download/gradle-9.3.1-all.zip"
           for proj in customer vendor rider; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
-              echo "Re-fixing $wrapper_props to Gradle 8.13"
-              sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_813}|" "$wrapper_props"
+              echo "Re-fixing $wrapper_props to Gradle 9.3.1"
+              sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_931}|" "$wrapper_props"
             fi
           done
 
