@@ -55,3 +55,12 @@ dependencies {
     implementation("com.onesignal:OneSignal:[5.0.0, 5.99.99]")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 }
+
+// Force Kotlin stdlib to 2.0.0 to avoid metadata version mismatch with Kotlin 1.9.10 compiler
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlin:kotlin-stdlib:2.0.0")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.0.0")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.0.0")
+    }
+}
