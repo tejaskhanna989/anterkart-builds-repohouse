@@ -32,22 +32,27 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Download Gradle 8.14 locally (compatible with Android Gradle Plugin 8.1.4)
+      - name: Install Android command-line tools (for apksigner, zipalign)
         run: |
-          mkdir -p $HOME/gradle-download
-          cd $HOME/gradle-download
-          wget -q https://services.gradle.org/distributions/gradle-8.14-all.zip -O gradle-8.14-all.zip
-          echo "Gradle downloaded: $(ls -la gradle-8.14-all.zip)"
+          mkdir -p $HOME/android-cmdline-tools
+          cd $HOME/android-cmdline-tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
+          unzip -q cmdline-tools.zip
+          mkdir -p cmdline-tools/latest
+          mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
+          echo "ANDROID_HOME=$HOME/android-cmdline-tools" >> $GITHUB_ENV
+          echo "$HOME/android-cmdline-tools/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          yes | $HOME/android-cmdline-tools/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
+          $HOME/android-cmdline-tools/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" > /dev/null 2>&1 || true
+          echo "Android tools installed"
 
-      - name: Fix Gradle wrapper to use Gradle 8.14 for all apps
+      - name: Ensure Gradle wrapper uses Gradle 8.14 (compatible with AGP 8.1.4)
         run: |
-          GRADLE_814="file://${HOME}/gradle-download/gradle-8.14-all.zip"
           for proj in customer vendor rider; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
               echo "Setting $wrapper_props to Gradle 8.14"
-              sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_814}|" "$wrapper_props"
-              cat "$wrapper_props"
+              sed -i "s|^distributionUrl=.*$|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14-all.zip|" "$wrapper_props"
             fi
           done
 
@@ -66,29 +71,80 @@ jobs:
         run: |
           flutter pub get
 
-      - name: Re-fix Gradle wrapper after pub get
+      - name: Ensure Gradle wrapper stays at 8.14 after pub get
         run: |
-          GRADLE_814="file://${HOME}/gradle-download/gradle-8.14-all.zip"
           for proj in customer vendor rider; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
-              echo "Re-fixing $wrapper_props to Gradle 8.14"
-              sed -i "s|^distributionUrl=.*$|distributionUrl=${GRADLE_814}|" "$wrapper_props"
+              sed -i "s|^distributionUrl=.*$|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14-all.zip|" "$wrapper_props"
             fi
           done
 
       - name: Build Customer APK
         working-directory: customer
-        run: flutter build apk --release --split-per-abi
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD_CUSTOMER }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD_CUSTOMER }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS_CUSTOMER }}
+        run: |
+          flutter build apk --release --split-per-abi
 
       - name: Build Vendor APK
         working-directory: vendor
-        run: flutter build apk --release --split-per-abi
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD_VENDOR }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD_VENDOR }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS_VENDOR }}
+        run: |
+          flutter build apk --release --split-per-abi
 
       - name: Build Rider APK
         working-directory: rider
-        run: flutter build apk --release --split-per-abi
-        continue-on-error: true
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD_RIDER }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD_RIDER }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS_RIDER }}
+        run: |
+          flutter build apk --release --split-per-abi
+
+      - name: Sign APKs with v2/v3 signatures for Android 11 (Customer)
+        working-directory: customer
+        run: |
+          APKSIGNER=$(find $ANDROID_HOME/build-tools -name "apksigner" -type f 2>/dev/null | head -1)
+          ZIPALIGN=$(find $ANDROID_HOME/build-tools -name "zipalign" -type f 2>/dev/null | head -1)
+          for apk in build/app/outputs/flutter-apk/app-release-*.apk; do
+            if [ -f "$apk" ]; then
+              echo "Signing $apk with v2/v3..."
+              "$APKSIGNER" sign --ks upload-keystore.jks --ks-key-alias upload --v2-signing-enabled true --v3-signing-enabled true "$apk"
+              "$ZIPALIGN" -v -p 4 "$apk" "${apk%.apk}-aligned.apk"
+            fi
+          done
+
+      - name: Sign APKs with v2/v3 signatures for Android 11 (Vendor)
+        working-directory: vendor
+        run: |
+          APKSIGNER=$(find $ANDROID_HOME/build-tools -name "apksigner" -type f 2>/dev/null | head -1)
+          ZIPALIGN=$(find $ANDROID_HOME/build-tools -name "zipalign" -type f 2>/dev/null | head -1)
+          for apk in build/app/outputs/flutter-apk/app-release-*.apk; do
+            if [ -f "$apk" ]; then
+              echo "Signing $apk with v2/v3..."
+              "$APKSIGNER" sign --ks upload-keystore.jks --ks-key-alias upload --v2-signing-enabled true --v3-signing-enabled true "$apk"
+              "$ZIPALIGN" -v -p 4 "$apk" "${apk%.apk}-aligned.apk"
+            fi
+          done
+
+      - name: Sign APKs with v2/v3 signatures for Android 11 (Rider)
+        working-directory: rider
+        run: |
+          APKSIGNER=$(find $ANDROID_HOME/build-tools -name "apksigner" -type f 2>/dev/null | head -1)
+          ZIPALIGN=$(find $ANDROID_HOME/build-tools -name "zipalign" -type f 2>/dev/null | head -1)
+          for apk in build/app/outputs/flutter-apk/app-release-*.apk; do
+            if [ -f "$apk" ]; then
+              echo "Signing $apk with v2/v3..."
+              "$APKSIGNER" sign --ks upload-keystore.jks --ks-key-alias upload --v2-signing-enabled true --v3-signing-enabled true "$apk"
+              "$ZIPALIGN" -v -p 4 "$apk" "${apk%.apk}-aligned.apk"
+            fi
+          done
 
       - name: Upload Customer APK artifacts
         uses: actions/upload-artifact@v4
@@ -110,30 +166,3 @@ jobs:
           name: rider-apk
           path: rider/build/app/outputs/flutter-apk/
           retention-days: 7
-
-      - name: Download Customer APK artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: customer-apk
-          path: customer-artifacts
-
-      - name: Download Vendor APK artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: vendor-apk
-          path: vendor-artifacts
-
-      - name: Download Rider APK artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: rider-apk
-          path: rider-artifacts
-
-      - name: Deploy APKs to VPS
-        if: false  # Disabled until SSH key is properly configured
-        run: |
-          echo "Build successful! APKs are ready for deployment."
-          echo "Customer APKs: $(ls customer-artifacts/*.apk 2>/dev/null || echo 'Not found')"
-          echo "Vendor APKs: $(ls vendor-artifacts/*.apk 2>/dev/null || echo 'Not found')"
-          echo "Rider APKs: $(ls rider-artifacts/*.apk 2>/dev/null || echo 'Not found')"
-          echo "Deployment is disabled until SSH key is properly configured"
