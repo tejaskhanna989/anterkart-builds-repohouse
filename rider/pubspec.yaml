@@ -10,10 +10,9 @@ dependencies:
   flutter:
     sdk: flutter
   audioplayers: ^5.2.1
-  # geolocator: ^11.0.0  # Temporarily removed due to dependency issues
-  geolocator: ^11.0.0
   google_fonts: ^6.2.1
   http: ^1.2.2
+  location: ^6.0.0
   onesignal_flutter: ^5.6.8
   provider: ^6.1.2
   shared_preferences: ^2.2.3

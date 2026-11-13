@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:location/location.dart' as loc;
 import '../services/api_service.dart';
 
 class LocationProvider extends ChangeNotifier {
   Timer? _timer;
   bool _isTracking = false;
-  StreamSubscription<Position>? _positionStream;
+  StreamSubscription<loc.LocationData>? _positionStream;
+  final loc.Location _location = loc.Location();
 
   bool get isTracking => _isTracking;
 
@@ -19,12 +20,7 @@ class LocationProvider extends ChangeNotifier {
     await _requestPermissions();
     
     // Start foreground location stream for live GPS
-    _positionStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 10, // Update every 10 meters
-      ),
-    ).listen((Position position) {
+    _positionStream = _location.onLocationChanged.listen((loc.LocationData locationData) {
       _updateLocation();
     });
 
@@ -43,30 +39,33 @@ class LocationProvider extends ChangeNotifier {
   }
 
   Future<void> _requestPermissions() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return;
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) return;
+    bool serviceEnabled = await _location.serviceEnabled();
+    if (!serviceEnabled) {
+      serviceEnabled = await _location.requestService();
+      if (!serviceEnabled) return;
     }
-    if (permission == LocationPermission.deniedForever) return;
+
+    loc.PermissionStatus permission = await _location.hasPermission();
+    if (permission == loc.PermissionStatus.denied) {
+      permission = await _location.requestPermission();
+      if (permission == loc.PermissionStatus.denied || permission == loc.PermissionStatus.deniedForever) return;
+    }
+    if (permission == loc.PermissionStatus.deniedForever) return;
   }
 
   Future<void> _updateLocation() async {
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      bool serviceEnabled = await _location.serviceEnabled();
       if (!serviceEnabled) return;
 
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) return;
+      loc.PermissionStatus permission = await _location.hasPermission();
+      if (permission == loc.PermissionStatus.denied) {
+        permission = await _location.requestPermission();
+        if (permission == loc.PermissionStatus.denied || permission == loc.PermissionStatus.deniedForever) return;
       }
-      if (permission == LocationPermission.deniedForever) return;
+      if (permission == loc.PermissionStatus.deniedForever) return;
 
-      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      loc.LocationData position = await _location.getLocation();
       await ApiService.post('rider/location/update.php', body: {'lat': position.latitude, 'lng': position.longitude}, auth: true);
     } catch (_) {}
   }

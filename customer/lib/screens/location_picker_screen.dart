@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'dart:async';
 import 'dart:convert';
@@ -41,23 +40,8 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
         _checkZone(existing);
       }
       loc.loadZones();
-      if (!loc.hasLocation) _goToCurrent();
+      // Auto-location disabled; user picks manually on map
     });
-  }
-
-  Future<void> _goToCurrent() async {
-    try {
-      bool en = await Geolocator.isLocationServiceEnabled();
-      if (!en) return;
-      var perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) perm = await Geolocator.requestPermission();
-      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) return;
-      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.best, timeLimit: const Duration(seconds: 12));
-      final latLng = LatLng(pos.latitude, pos.longitude);
-      setState(() => _picked = latLng);
-      _mapController.move(latLng, 16);
-      _reverse(latLng);
-    } catch (_) {}
   }
 
   Future<void> _reverse(LatLng p) async {
@@ -79,7 +63,8 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     _checkZone(p);
   }
 
-  Future<void> _checkZone(LatLng p) async {    setState(() => _checkingZone = true);
+  Future<void> _checkZone(LatLng p) async {
+    setState(() => _checkingZone = true);
     try {
       final uri = Uri.parse('https://otamzo.com/api/check-zone.php?lat=${p.latitude}&lng=${p.longitude}&store=anterkart');
       final res = await http.get(uri).timeout(const Duration(seconds: 8));
@@ -218,7 +203,6 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
               ],
             ),
           ),
-          Positioned(right: 12, bottom: 140, child: FloatingActionButton.small(backgroundColor: Colors.white, onPressed: _goToCurrent, child: const Icon(Icons.my_location, color: Color(0xFF2563EB)))),
           Positioned(
             left: 0,
             right: 0,
@@ -235,7 +219,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                   Text(_addr.isEmpty ? 'Tap on map to select location' : _addr, style: TextStyle(color: Colors.grey[700])),
                   if (_picked != null && !_inZone) ...[
                     const SizedBox(height: 8),
-                    Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red.withOpacity( 0.1), borderRadius: BorderRadius.circular(8)), child: Row(children: const [Icon(Icons.block, color: Colors.red, size: 16), SizedBox(width: 6), Expanded(child: Text("Sorry, we don't deliver here yet.", style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w600)))])),
+                    Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(8)), child: Row(children: const [Icon(Icons.block, color: Colors.red, size: 16), SizedBox(width: 6), Expanded(child: Text("Sorry, we don't deliver here yet.", style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w600)))])),
                   ] else if (_picked != null && _inZone && _zoneName.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text('Delivering to $_zoneName', style: const TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w600)),
