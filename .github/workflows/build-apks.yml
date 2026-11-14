@@ -34,6 +34,7 @@ jobs:
 
       - name: Install Android command-line tools (for apksigner, zipalign)
         run: |
+          set -euo pipefail
           mkdir -p $HOME/android-cmdline-tools
           cd $HOME/android-cmdline-tools
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
@@ -45,6 +46,42 @@ jobs:
           yes | $HOME/android-cmdline-tools/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
           $HOME/android-cmdline-tools/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" > /dev/null 2>&1 || true
           echo "Android tools installed"
+
+      # The release keystores and android/key.properties are git-ignored, so
+      # they are recreated here from the GitHub secrets. The Gradle release
+      # build type picks them up (see android/app/build.gradle.kts) and signs
+      # the APKs with v1 + v2 + v3 while it packages them.
+      - name: Prepare release signing material
+        env:
+          CUSTOMER_KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64_CUSTOMER }}
+          CUSTOMER_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD_CUSTOMER }}
+          CUSTOMER_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD_CUSTOMER }}
+          CUSTOMER_KEY_ALIAS: ${{ secrets.KEY_ALIAS_CUSTOMER }}
+          VENDOR_KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64_VENDOR }}
+          VENDOR_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD_VENDOR }}
+          VENDOR_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD_VENDOR }}
+          VENDOR_KEY_ALIAS: ${{ secrets.KEY_ALIAS_VENDOR }}
+          RIDER_KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64_RIDER }}
+          RIDER_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD_RIDER }}
+          RIDER_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD_RIDER }}
+          RIDER_KEY_ALIAS: ${{ secrets.KEY_ALIAS_RIDER }}
+        run: |
+          set -euo pipefail
+          prepare_keys() {
+            local app="$1" base64="$2" store_pw="$3" key_pw="$4" alias="$5"
+            if [ -z "$base64" ] || [ -z "$store_pw" ] || [ -z "$key_pw" ] || [ -z "$alias" ]; then
+              echo "::error::Missing signing secrets for $app (KEYSTORE_BASE64/KEYSTORE_PASSWORD/KEY_PASSWORD/KEY_ALIAS)"
+              exit 1
+            fi
+            echo "$base64" | base64 --decode > "$app/android/app/upload-keystore.jks"
+            printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=upload-keystore.jks\n' \
+              "$store_pw" "$key_pw" "$alias" > "$app/android/key.properties"
+            chmod 600 "$app/android/app/upload-keystore.jks" "$app/android/key.properties"
+            echo "Signing material prepared for $app"
+          }
+          prepare_keys customer "$CUSTOMER_KEYSTORE_BASE64" "$CUSTOMER_KEYSTORE_PASSWORD" "$CUSTOMER_KEY_PASSWORD" "$CUSTOMER_KEY_ALIAS"
+          prepare_keys vendor   "$VENDOR_KEYSTORE_BASE64"   "$VENDOR_KEYSTORE_PASSWORD"   "$VENDOR_KEY_PASSWORD"   "$VENDOR_KEY_ALIAS"
+          prepare_keys rider    "$RIDER_KEYSTORE_BASE64"    "$RIDER_KEYSTORE_PASSWORD"    "$RIDER_KEY_PASSWORD"    "$RIDER_KEY_ALIAS"
 
       - name: Ensure Gradle wrapper uses Gradle 8.14 (compatible with AGP 8.1.4)
         run: |
@@ -82,69 +119,53 @@ jobs:
 
       - name: Build Customer APK
         working-directory: customer
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD_CUSTOMER }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD_CUSTOMER }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS_CUSTOMER }}
         run: |
           flutter build apk --release --split-per-abi
 
       - name: Build Vendor APK
         working-directory: vendor
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD_VENDOR }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD_VENDOR }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS_VENDOR }}
         run: |
           flutter build apk --release --split-per-abi
 
       - name: Build Rider APK
         working-directory: rider
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD_RIDER }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD_RIDER }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS_RIDER }}
         run: |
           flutter build apk --release --split-per-abi
 
-      - name: Sign APKs with v2/v3 signatures for Android 11 (Customer)
-        working-directory: customer
+      # Fails the job when an APK is unsigned or lacks the v2/v3 signatures
+      # that Android 11 requires. The previous version of this step silently
+      # signed nothing because the glob did not match Flutter's split APK
+      # names (app-arm64-v8a-release.apk, not app-release-arm64-v8a.apk).
+      - name: Verify APK signatures (Android 11 / API 30)
         run: |
-          APKSIGNER=$(find $ANDROID_HOME/build-tools -name "apksigner" -type f 2>/dev/null | head -1)
-          ZIPALIGN=$(find $ANDROID_HOME/build-tools -name "zipalign" -type f 2>/dev/null | head -1)
-          for apk in build/app/outputs/flutter-apk/app-release-*.apk; do
-            if [ -f "$apk" ]; then
-              echo "Signing $apk with v2/v3..."
-              "$APKSIGNER" sign --ks upload-keystore.jks --ks-key-alias upload --v2-signing-enabled true --v3-signing-enabled true "$apk"
-              "$ZIPALIGN" -v -p 4 "$apk" "${apk%.apk}-aligned.apk"
+          set -euo pipefail
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
+          ZIPALIGN=$(find "$ANDROID_HOME/build-tools" -name zipalign -type f | sort -V | tail -1)
+          echo "apksigner: $APKSIGNER"
+          shopt -s nullglob
+          apks=(customer/build/app/outputs/flutter-apk/app-*-release.apk
+                vendor/build/app/outputs/flutter-apk/app-*-release.apk
+                rider/build/app/outputs/flutter-apk/app-*-release.apk)
+          if [ ${#apks[@]} -eq 0 ]; then
+            echo "::error::No release APKs were produced"
+            exit 1
+          fi
+          for apk in "${apks[@]}"; do
+            echo "::group::$(basename "$apk")"
+            "$ZIPALIGN" -c 4 "$apk"
+            report=$("$APKSIGNER" verify --min-sdk-version 24 --print-certs -v "$apk" 2>&1)
+            echo "$report"
+            if ! echo "$report" | grep -q "Verified using v2 scheme"; then
+              echo "::error::APK Signature Scheme v2 is missing in $apk"
+              exit 1
             fi
-          done
-
-      - name: Sign APKs with v2/v3 signatures for Android 11 (Vendor)
-        working-directory: vendor
-        run: |
-          APKSIGNER=$(find $ANDROID_HOME/build-tools -name "apksigner" -type f 2>/dev/null | head -1)
-          ZIPALIGN=$(find $ANDROID_HOME/build-tools -name "zipalign" -type f 2>/dev/null | head -1)
-          for apk in build/app/outputs/flutter-apk/app-release-*.apk; do
-            if [ -f "$apk" ]; then
-              echo "Signing $apk with v2/v3..."
-              "$APKSIGNER" sign --ks upload-keystore.jks --ks-key-alias upload --v2-signing-enabled true --v3-signing-enabled true "$apk"
-              "$ZIPALIGN" -v -p 4 "$apk" "${apk%.apk}-aligned.apk"
+            if ! echo "$report" | grep -q "Verified using v3 scheme"; then
+              echo "::error::APK Signature Scheme v3 is missing in $apk"
+              exit 1
             fi
+            echo "::endgroup::"
           done
-
-      - name: Sign APKs with v2/v3 signatures for Android 11 (Rider)
-        working-directory: rider
-        run: |
-          APKSIGNER=$(find $ANDROID_HOME/build-tools -name "apksigner" -type f 2>/dev/null | head -1)
-          ZIPALIGN=$(find $ANDROID_HOME/build-tools -name "zipalign" -type f 2>/dev/null | head -1)
-          for apk in build/app/outputs/flutter-apk/app-release-*.apk; do
-            if [ -f "$apk" ]; then
-              echo "Signing $apk with v2/v3..."
-              "$APKSIGNER" sign --ks upload-keystore.jks --ks-key-alias upload --v2-signing-enabled true --v3-signing-enabled true "$apk"
-              "$ZIPALIGN" -v -p 4 "$apk" "${apk%.apk}-aligned.apk"
-            fi
-          done
+          echo "All release APKs are properly signed for Android 11."
 
       - name: Upload Customer APK artifacts
         uses: actions/upload-artifact@v4

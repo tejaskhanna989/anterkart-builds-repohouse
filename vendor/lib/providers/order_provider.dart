@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../config/api_config.dart';
 import '../models/order.dart';
 import '../services/api_service.dart';
 
@@ -40,9 +41,34 @@ class OrderProvider extends ChangeNotifier {
     final res = await ApiService.post('vendor/orders/status.php', body: {'order_id': orderId, 'status': status}, auth: true);
     if (res['success'] == true) {
       await loadOrders();
+      // The food is on the counter: wake up the riders that are near the
+      // store so their phones start ringing.
+      if (status == 'preparing' || status == 'ready') {
+        await notifyNearbyRiders(orderId);
+      }
       return true;
     }
     return false;
+  }
+
+  /// Ask the server to notify the riders within [radiusKm] of the store.
+  ///
+  /// Best effort: the endpoint ships in `server-patch/` and is optional, so
+  /// a 404 or a network error is ignored and never blocks the order.
+  Future<int> notifyNearbyRiders(int orderId, {double radiusKm = 1}) async {
+    try {
+      final res = await ApiService.post('realtime/notify.php', body: {
+        'order_id': orderId,
+        'lat': ApiConfig.storeLat,
+        'lng': ApiConfig.storeLng,
+        'radius_km': radiusKm,
+      }, auth: true);
+      if (res['success'] == true) {
+        final data = res['data'] as Map? ?? {};
+        return int.tryParse('${data['nearby_count'] ?? 0}') ?? 0;
+      }
+    } catch (_) {}
+    return 0;
   }
 
   Future<Map<String, int>> loadPrepTime() async {

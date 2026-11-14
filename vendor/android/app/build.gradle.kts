@@ -6,8 +6,22 @@ plugins {
     // google-services enabled once google-services.json is present (Firebase setup pending).
 }
 
-import java.io.FileInputStream
 import java.util.Properties
+
+// Release signing material.
+//
+// `android/key.properties` and `android/app/upload-keystore.jks` are
+// git-ignored, so they are not part of the repository. CI recreates both
+// from the GitHub secrets right before the build. When they are missing the
+// release build stays unsigned instead of failing, so a plain `flutter run`
+// still works on a developer machine.
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+}
+val releaseStoreFile = file(keystoreProperties.getProperty("storeFile") ?: "upload-keystore.jks")
+val hasReleaseSigning = keystorePropertiesFile.exists() && releaseStoreFile.exists()
 
 android {
     namespace = "com.otamzo.vendor"
@@ -20,16 +34,18 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            val keystoreProperties = Properties()
-            val keystoreFile = rootProject.file("key.properties")
-            if (keystoreFile.exists()) {
-                keystoreProperties.load(FileInputStream(keystoreFile))
+        if (hasReleaseSigning) {
+            create("release") {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = releaseStoreFile
+                storePassword = keystoreProperties.getProperty("storePassword")
+                // v1 keeps devices older than Android 7 working, v2 and v3
+                // are what Android 11 (API 30) requires.
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
             }
-            keyAlias = keystoreProperties.getProperty("keyAlias")
-            keyPassword = keystoreProperties.getProperty("keyPassword")
-            storeFile = file(keystoreProperties.getProperty("storeFile") ?: "upload-keystore.jks")
-            storePassword = keystoreProperties.getProperty("storePassword")
         }
     }
 
@@ -43,6 +59,11 @@ android {
 
     buildTypes {
         release {
+            // Without the keystore the release build stays unsigned instead
+            // of failing the whole build.
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 }
