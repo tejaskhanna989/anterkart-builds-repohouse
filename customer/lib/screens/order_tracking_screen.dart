@@ -8,7 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../providers/order_provider.dart';
 import 'chat_screen.dart';
 
-/// Live order tracking: polls track.php every 15s, shows stage banner,
+/// Live order tracking: polls track.php every 5s, shows stage banner,
 /// timeline, ETA breakdown, rider marker + home marker, rider call button.
 class OrderTrackingScreen extends StatefulWidget {
   final int orderId;
@@ -27,7 +27,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   void initState() {
     super.initState();
     _track();
-    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted) _track();
     });
   }

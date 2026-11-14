@@ -30,10 +30,30 @@ class ApiService {
     await prefs.remove('customer_data');
   }
 
-  static Map<String, String> _headers({String? token}) {
-    final h = {'Content-Type': 'application/json', 'Accept': 'application/json'};
+  static Map<String, String> _headers({String? token, String contentType = 'application/json'}) {
+    final h = {'Content-Type': contentType, 'Accept': 'application/json'};
     if (token != null) h['Authorization'] = 'Bearer $token';
     return h;
+  }
+
+  /// Encode a request body as `application/x-www-form-urlencoded`.
+  ///
+  /// The live host intermittently delivers an EMPTY `php://input` to the
+  /// origin, which makes every JSON POST look like "no parameters were
+  /// sent" (login fails, orders are not created, ...). Form encoded bodies
+  /// are parsed by PHP into `$_POST` and keep working in that situation,
+  /// while still being read correctly when `php://input` is healthy.
+  /// Nested values are JSON encoded so nothing is silently dropped.
+  static String? _encodeBody(Map<String, dynamic>? body) {
+    if (body == null) return null;
+    return body.entries
+        .where((e) => e.value != null)
+        .map((e) {
+          final v = e.value;
+          final value = (v is Map || v is List) ? jsonEncode(v) : '$v';
+          return '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(value)}';
+        })
+        .join('&');
   }
 
   static Future<Map<String, dynamic>> get(String path, {bool auth = false, Map<String, String>? queryParams}) async {
@@ -60,8 +80,8 @@ class ApiService {
       if (auth) token = await getToken();
       final response = await http.post(
         Uri.parse(url),
-        headers: _headers(token: token),
-        body: body != null ? jsonEncode(body) : null,
+        headers: _headers(token: token, contentType: 'application/x-www-form-urlencoded'),
+        body: _encodeBody(body),
       ).timeout(const Duration(seconds: 15));
       if (response.statusCode >= 500) return {'success': false, 'message': 'Server error', 'data': {}};
       return jsonDecode(response.body);

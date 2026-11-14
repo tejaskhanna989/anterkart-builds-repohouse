@@ -25,7 +25,7 @@ class LocationProvider extends ChangeNotifier {
     });
 
     // Also keep timer as fallback
-    _timer = Timer.periodic(const Duration(seconds: 10), (_) => _updateLocation());
+    _timer = Timer.periodic(const Duration(seconds: 5), (_) => _updateLocation());
     await _updateLocation();
   }
 

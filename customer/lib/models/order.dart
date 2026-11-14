@@ -20,6 +20,8 @@ class Order {
   final String? riderPhone;
   final double? riderLat;
   final double? riderLng;
+  final double? deliveryLat;
+  final double? deliveryLng;
   final int? etaMinutes;
 
   Order({
@@ -42,8 +44,19 @@ class Order {
     this.riderPhone,
     this.riderLat,
     this.riderLng,
+    this.deliveryLat,
+    this.deliveryLng,
     this.etaMinutes,
   });
+
+  /// Read a coordinate from a number or a numeric string.
+  static double? _coord(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    final raw = value.toString().trim();
+    if (raw.isEmpty) return null;
+    return double.tryParse(raw);
+  }
 
   factory Order.fromJson(Map<String, dynamic> j) {
     List<OrderItem> items = [];
@@ -54,8 +67,12 @@ class Order {
     if (j['rider_location'] != null && j['rider_location'].toString().contains(',')) {
       final parts = j['rider_location'].toString().split(',');
       riderLat = double.tryParse(parts[0].trim());
-      riderLng = double.tryParse(parts[1].trim());
+      riderLng = parts.length > 1 ? double.tryParse(parts[1].trim()) : null;
     }
+    // Customer drop-off coordinates (present on newer API responses).
+    final dest = j['destination'] is Map ? Map<String, dynamic>.from(j['destination'] as Map) : null;
+    final deliveryLat = _coord(dest?['lat'] ?? j['delivery_lat'] ?? j['customer_lat'] ?? j['lat']);
+    final deliveryLng = _coord(dest?['lng'] ?? j['delivery_lng'] ?? j['customer_lng'] ?? j['lng']);
     return Order(
       id: j['id'] is int ? j['id'] : int.tryParse('${j['id']}') ?? 0,
       orderNumber: j['order_number'] ?? '',
@@ -76,6 +93,8 @@ class Order {
       riderPhone: j['rider']?['phone'],
       riderLat: riderLat,
       riderLng: riderLng,
+      deliveryLat: deliveryLat,
+      deliveryLng: deliveryLng,
       etaMinutes: j['eta_minutes'] is int ? j['eta_minutes'] : int.tryParse('${j['eta_minutes']}'),
     );
   }

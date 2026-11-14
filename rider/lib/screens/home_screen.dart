@@ -146,7 +146,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
         if (offerId > 0) {
 
-          await prov.reofferOrder(offerId);
+          // NOTE: rider/orders/reoffer.php does not exist on the live server
+          // (404). The offer is already live, so surface it directly instead
+          // of calling a dead endpoint.
 
         }
 

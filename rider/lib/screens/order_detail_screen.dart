@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/order.dart';
 import '../providers/order_provider.dart';
 import 'chat_screen.dart';
+import 'delivery_map_screen.dart';
 
 /// Rider order workspace: arrived swipes, counter-code pickup, navigation,
 /// customer call, and delivery swipe — driven by live detail reloads.
@@ -150,6 +151,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final order = _order;
     return Scaffold(
       appBar: AppBar(title: Text(order != null ? 'Order #${order.orderNumber}' : 'Order'), actions: [
+        if (order != null)
+          IconButton(
+            icon: const Icon(Icons.map_outlined),
+            tooltip: 'Live map',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DeliveryMapScreen(orderId: order.id, order: order))),
+          ),
         if (order != null)
           IconButton(
             icon: const Icon(Icons.chat_outlined),

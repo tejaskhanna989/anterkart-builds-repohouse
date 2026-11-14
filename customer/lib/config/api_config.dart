@@ -10,4 +10,9 @@ class ApiConfig {
   // Marketplace mode: 'all' mixes every vendor's products and reads the
   // platform-level config (marketplace_settings). Pass a store slug to scope.
   static const String store = 'all';
+
+  // Pickup point of the store (used as the "store" marker on the live rider
+  // map). Update when the store moves.
+  static const double storeLat = 24.853545;
+  static const double storeLng = 74.620191;
 }

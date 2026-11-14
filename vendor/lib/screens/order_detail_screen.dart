@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../config/api_config.dart';
 import '../models/order.dart';
 import '../providers/order_provider.dart';
 
@@ -19,6 +22,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Order? _order;
   bool _loading = false;
   bool _acting = false;
+  Timer? _liveTimer;
 
   @override
   void initState() {
@@ -27,14 +31,35 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     _reload();
   }
 
-  Future<void> _reload() async {
-    setState(() => _loading = true);
+  @override
+  void dispose() {
+    _liveTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Keep the rider marker fresh while the order is on the road.
+  void _syncLivePolling() {
+    final status = _order?.status;
+    final live = status == 'out_for_delivery' || status == 'ready';
+    if (live && _liveTimer == null) {
+      _liveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+        if (mounted) _reload(silent: true);
+      });
+    } else if (!live && _liveTimer != null) {
+      _liveTimer!.cancel();
+      _liveTimer = null;
+    }
+  }
+
+  Future<void> _reload({bool silent = false}) async {
+    if (!silent) setState(() => _loading = true);
     final fresh = await context.read<OrderProvider>().loadDetail(widget.orderId);
     if (!mounted) return;
     setState(() {
       if (fresh != null) _order = fresh;
       _loading = false;
     });
+    _syncLivePolling();
   }
 
   Future<void> _advance(String next) async {
@@ -214,9 +239,30 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Widget _buildLiveRiderMap(Order o) {
-    final LatLng storeLatLng = LatLng(24.853545, 74.620191);
-    final LatLng riderLatLng = LatLng(o.riderLat!, o.riderLng!);
-    final LatLng destinationLatLng = LatLng(24.8793635, 74.6351433);
+    final riderLat = o.riderLat;
+    final riderLng = o.riderLng;
+    if (riderLat == null || riderLng == null) {
+      return Card(
+        margin: const EdgeInsets.only(top: 8),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(children: [
+            const Icon(Icons.location_searching, color: Colors.grey),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Rider GPS is not available yet — it appears as soon as the rider shares their location.',
+                style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+              ),
+            ),
+          ]),
+        ),
+      );
+    }
+    final riderLatLng = LatLng(riderLat, riderLng);
+    final storeLatLng = LatLng(ApiConfig.storeLat, ApiConfig.storeLng);
+    final hasDestination = o.deliveryLat != null && o.deliveryLng != null;
+    final destinationLatLng = hasDestination ? LatLng(o.deliveryLat!, o.deliveryLng!) : null;
 
     return Card(
       margin: const EdgeInsets.only(top: 8),
@@ -276,7 +322,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         ),
                       ),
                       Marker(
-                        point: LatLng(24.853545, 74.620191),
+                        point: storeLatLng,
                         width: 50,
                         height: 50,
                         child: Container(
@@ -288,19 +334,20 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           child: const Icon(Icons.store, color: Colors.white, size: 24),
                         ),
                       ),
-                      Marker(
-                        point: LatLng(24.8793635, 74.6351433),
-                        width: 50,
-                        height: 50,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEF4444),
-                            shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))],
+                      if (destinationLatLng != null)
+                        Marker(
+                          point: destinationLatLng,
+                          width: 50,
+                          height: 50,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEF4444),
+                              shape: BoxShape.circle,
+                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))],
+                            ),
+                            child: const Icon(Icons.home, color: Colors.white, size: 24),
                           ),
-                          child: const Icon(Icons.home, color: Colors.white, size: 24),
                         ),
-                      ),
                     ],
                   ),
                 ],
@@ -444,10 +491,5 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       default:
         return [];
     }
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 }
