@@ -117,6 +117,23 @@ jobs:
             fi
           done
 
+      # The tests pin down the live API payload shapes and the offer
+      # distance logic, so a broken build never reaches a phone.
+      - name: Run tests (Customer)
+        working-directory: customer
+        run: |
+          flutter test
+
+      - name: Run tests (Vendor)
+        working-directory: vendor
+        run: |
+          flutter test
+
+      - name: Run tests (Rider)
+        working-directory: rider
+        run: |
+          flutter test
+
       - name: Build Customer APK
         working-directory: customer
         run: |
