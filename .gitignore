@@ -52,3 +52,4 @@ Thumbs.db
 android/build/reports/
 android/app/build/reports/
 **/build/reports/
+apks/
