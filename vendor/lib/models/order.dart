@@ -83,15 +83,25 @@ class Order {
       items = (j['items'] as List).map((x) => OrderItem.fromJson(x)).toList();
     }
 
-    // Live rider GPS. The API exposes it as the `rider_location` column
-    // ("lat, lng") on the order, and sometimes as a `rider` object.
+    // Live rider GPS. The API exposes it in three different shapes:
+    //  - `rider_lat` / `rider_lng` columns (orders/detail.php, orders/list.php)
+    //  - `rider_location` as a "lat, lng" string (orders/track.php)
+    //  - a `rider` object with lat/lng
+    // All of them are checked so the map works with every endpoint.
     final riderLoc = _map(j['rider_location']);
-    double? riderLat;
-    double? riderLng;
-    if (riderLoc != null) {
-      riderLat = _coord(riderLoc['lat']);
-      riderLng = _coord(riderLoc['lng'] ?? riderLoc['lon'] ?? riderLoc['longitude']);
-    } else {
+    final rider = _map(j['rider']);
+    double? riderLat = _coord(j['rider_lat']);
+    double? riderLng = _coord(j['rider_lng']);
+    if (riderLat == null || riderLng == null) {
+      if (riderLoc != null) {
+        riderLat = _coord(riderLoc['lat']);
+        riderLng = _coord(riderLoc['lng'] ?? riderLoc['lon'] ?? riderLoc['longitude']);
+      } else if (rider != null) {
+        riderLat = _coord(rider['lat'] ?? rider['latitude']);
+        riderLng = _coord(rider['lng'] ?? rider['lon'] ?? rider['longitude']);
+      }
+    }
+    if (riderLat == null || riderLng == null) {
       final raw = j['rider_location']?.toString().trim() ?? '';
       if (raw.contains(',')) {
         final parts = raw.split(',');
@@ -103,7 +113,6 @@ class Order {
       riderLat = null;
       riderLng = null;
     }
-    final rider = _map(j['rider']);
 
     // Customer drop-off coordinates (present on newer API responses).
     final dest = _map(j['destination']);

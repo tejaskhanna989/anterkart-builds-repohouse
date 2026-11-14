@@ -9,6 +9,11 @@ class LocationProvider extends ChangeNotifier {
   StreamSubscription<loc.LocationData>? _positionStream;
   final loc.Location _location = loc.Location();
 
+  /// Last position successfully read from the device. Used to decide how
+  /// far away a delivery offer is (see OfferProximity).
+  double? lastLat;
+  double? lastLng;
+
   bool get isTracking => _isTracking;
 
   Future<void> startTracking() async {
@@ -66,6 +71,8 @@ class LocationProvider extends ChangeNotifier {
       if (permission == loc.PermissionStatus.deniedForever) return;
 
       loc.LocationData position = await _location.getLocation();
+      lastLat = position.latitude;
+      lastLng = position.longitude;
       await ApiService.post('rider/location/update.php', body: {'lat': position.latitude, 'lng': position.longitude}, auth: true);
     } catch (_) {}
   }

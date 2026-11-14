@@ -63,11 +63,31 @@ class Order {
     if (j['items'] != null) {
       items = (j['items'] as List).map((x) => OrderItem.fromJson(x)).toList();
     }
-    double? riderLat, riderLng;
-    if (j['rider_location'] != null && j['rider_location'].toString().contains(',')) {
-      final parts = j['rider_location'].toString().split(',');
-      riderLat = double.tryParse(parts[0].trim());
-      riderLng = parts.length > 1 ? double.tryParse(parts[1].trim()) : null;
+    // Live rider GPS. The API exposes it in three different shapes:
+    //  - `rider_lat` / `rider_lng` columns (orders/detail.php, orders/list.php)
+    //  - `rider_location` as a "lat, lng" string (orders/track.php)
+    //  - a `rider` object with lat/lng
+    // All of them are checked so the map works with every endpoint.
+    final rider = j['rider'] is Map ? Map<String, dynamic>.from(j['rider'] as Map) : null;
+    double? riderLat = _coord(j['rider_lat']);
+    double? riderLng = _coord(j['rider_lng']);
+    if (riderLat == null || riderLng == null) {
+      if (rider != null) {
+        riderLat = _coord(rider['lat'] ?? rider['latitude']);
+        riderLng = _coord(rider['lng'] ?? rider['lon'] ?? rider['longitude']);
+      }
+    }
+    if (riderLat == null || riderLng == null) {
+      final raw = j['rider_location']?.toString().trim() ?? '';
+      if (raw.contains(',')) {
+        final parts = raw.split(',');
+        riderLat = double.tryParse(parts[0].trim());
+        riderLng = parts.length > 1 ? double.tryParse(parts[1].trim()) : null;
+      }
+    }
+    if (riderLat == null || riderLng == null || (riderLat == 0 && riderLng == 0)) {
+      riderLat = null;
+      riderLng = null;
     }
     // Customer drop-off coordinates (present on newer API responses).
     final dest = j['destination'] is Map ? Map<String, dynamic>.from(j['destination'] as Map) : null;
@@ -89,8 +109,8 @@ class Order {
       items: items,
       createdAt: j['created_at'] ?? '',
       itemCount: j['item_count'] is int ? j['item_count'] : int.tryParse('${j['item_count']}') ?? items.length,
-      riderName: j['rider']?['name'],
-      riderPhone: j['rider']?['phone'],
+      riderName: rider?['name'] ?? j['rider_name']?.toString(),
+      riderPhone: rider?['phone'] ?? j['rider_phone']?.toString(),
       riderLat: riderLat,
       riderLng: riderLng,
       deliveryLat: deliveryLat,

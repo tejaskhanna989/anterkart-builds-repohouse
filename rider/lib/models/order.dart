@@ -73,23 +73,36 @@ class Order {
     final deliveryLat = _coord(dest?['lat'] ?? j['delivery_lat'] ?? j['customer_lat'] ?? j['lat']);
     final deliveryLng = _coord(dest?['lng'] ?? j['delivery_lng'] ?? j['customer_lng'] ?? j['lng']);
 
-    final store = _map(j['store']);
-    final storeLat = _coord(store?['lat'] ?? j['store_lat'] ?? j['pickup_lat'] ?? j['tenant_lat']);
-    final storeLng = _coord(store?['lng'] ?? j['store_lng'] ?? j['pickup_lng'] ?? j['tenant_lng']);
+    final store = _map(j['store']) ?? _map(j['vendor']);
+    final storeLat = _coord(store?['lat'] ?? store?['latitude'] ??
+        j['store_lat'] ?? j['pickup_lat'] ?? j['tenant_lat']);
+    final storeLng = _coord(store?['lng'] ?? store?['lon'] ?? store?['longitude'] ??
+        j['store_lng'] ?? j['pickup_lng'] ?? j['tenant_lng']);
 
     final riderLoc = _map(j['rider_location']);
-    double? riderLat;
-    double? riderLng;
-    if (riderLoc != null) {
-      riderLat = _coord(riderLoc['lat']);
-      riderLng = _coord(riderLoc['lng'] ?? riderLoc['lon'] ?? riderLoc['longitude']);
-    } else {
+    final rider = _map(j['rider']);
+    double? riderLat = _coord(j['rider_lat']);
+    double? riderLng = _coord(j['rider_lng']);
+    if (riderLat == null || riderLng == null) {
+      if (riderLoc != null) {
+        riderLat = _coord(riderLoc['lat']);
+        riderLng = _coord(riderLoc['lng'] ?? riderLoc['lon'] ?? riderLoc['longitude']);
+      } else if (rider != null) {
+        riderLat = _coord(rider['lat'] ?? rider['latitude']);
+        riderLng = _coord(rider['lng'] ?? rider['lon'] ?? rider['longitude']);
+      }
+    }
+    if (riderLat == null || riderLng == null) {
       final raw = j['rider_location']?.toString().trim() ?? '';
       if (raw.contains(',')) {
         final parts = raw.split(',');
         riderLat = double.tryParse(parts[0].trim());
         riderLng = parts.length > 1 ? double.tryParse(parts[1].trim()) : null;
       }
+    }
+    if (riderLat == null || riderLng == null || (riderLat == 0 && riderLng == 0)) {
+      riderLat = null;
+      riderLng = null;
     }
 
     return Order(

@@ -8,6 +8,8 @@ import 'package:provider/provider.dart';
 
 import '../models/order.dart';
 
+import '../config/api_config.dart';
+
 import '../providers/auth_provider.dart';
 
 import '../providers/order_provider.dart';
@@ -19,6 +21,7 @@ import '../providers/location_provider.dart';
 import '../services/onesignal_service.dart';
 
 import '../services/order_alarm.dart';
+import '../services/offer_proximity.dart';
 
 import '../widgets/order_card.dart';
 
@@ -106,7 +109,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
           for (final o in newOffers) _shownOfferIds.add(int.tryParse('${o['offer_id']}') ?? -1);
 
-          _showRiderOfferModal(newOffers.first);
+          await _handleNewOffer(newOffers.first);
 
         }
 
@@ -154,13 +157,42 @@ class _HomeScreenState extends State<HomeScreen> {
 
         _shownOfferIds.add(int.tryParse('${o['offer_id']}') ?? -1);
 
-        _showRiderOfferModal(o);
+        await _handleNewOffer(o);
 
         break; // Show one at a time
 
       }
 
     }
+
+  }
+
+  /// Only riders that are close to the store get the full screen alarm.
+  ///
+  /// The distance is measured from the rider's own GPS position to the
+  /// pickup point of the offer. Offers that are too far away are shown as a
+  /// quiet notice instead, so the phone does not ring for a delivery the
+  /// rider cannot reach in time.
+  Future<void> _handleNewOffer(Map<String, dynamic> offer) async {
+
+    if (_dialogOpen) return;
+
+    final loc = context.read<LocationProvider>();
+
+    final distance = OfferProximity.distanceToOffer(
+      offer,
+      riderLat: loc.lastLat,
+      riderLng: loc.lastLng,
+      fallbackLat: ApiConfig.storeLat,
+      fallbackLng: ApiConfig.storeLng,
+    );
+
+    if (distance != null && distance > ApiConfig.nearbyRadiusKm) {
+      _snack('New offer ${distance.toStringAsFixed(1)} km away — no alarm', true);
+      return;
+    }
+
+    await _showRiderOfferModal(offer);
 
   }
 
@@ -200,7 +232,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
     await OrderAlarm.start();
 
-    if (!mounted) return;
+    if (!mounted) {
+
+      _dialogOpen = false;
+
+      await OrderAlarm.stop();
+
+      return;
+
+    }
 
     final offerId = int.tryParse('${off['offer_id']}') ?? 0;
 

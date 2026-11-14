@@ -83,6 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await OrderAlarm.start();
     if (!mounted) {
       _dialogOpen = false;
+      await OrderAlarm.stop();
       return;
     }
     await showDialog(
