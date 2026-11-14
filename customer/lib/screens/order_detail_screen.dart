@@ -85,12 +85,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 title: Text(o.riderName!),
                 subtitle: Text(o.riderPhone ?? ''),
               ))),
-              if (o.riderLat != null && o.riderLng != null && (o.status == 'out_for_delivery' || o.status == 'ready')) ...[
-                const SizedBox(height: 12),
-                _buildLiveRiderMap(o),
-              ],
-              if (o.riderName != null || o.riderPhone != null)
-                const SizedBox(height: 12),
+              const SizedBox(height: 12),
+            ],
+            // The live map only needs the rider coordinates, so it also
+            // appears when the API has no rider name yet.
+            if (o.riderLat != null && o.riderLng != null &&
+                (o.status == 'out_for_delivery' || o.status == 'ready')) ...[
+              _buildLiveRiderMap(o),
+              const SizedBox(height: 12),
             ],
             if (o.riderName != null || o.riderPhone != null)
               _buildRiderInfo(o),

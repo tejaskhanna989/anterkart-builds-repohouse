@@ -143,9 +143,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                               ]),
                             ),
                           ),
-                        if (order.deliveryBoyId != 0 && order.status == 'ready') const SizedBox(height: 4),
-                        if (order.deliveryBoyId != 0 &&
-                            (order.riderLat != null && order.riderLng != null) &&
+                        if (order.deliveryBoyId != 0) const SizedBox(height: 4),
+                        // The live map only needs the rider coordinates.
+                        if ((order.riderLat != null && order.riderLng != null) &&
                             (order.status == 'out_for_delivery' || order.status == 'ready'))
                           _buildLiveRiderMap(order),
                         Card(
