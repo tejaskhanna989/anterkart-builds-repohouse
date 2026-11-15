@@ -119,4 +119,37 @@ class _LoginScreenState extends State<LoginScreen> {
     _passwordController.dispose();
     super.dispose();
   }
+
+  void _showResetPasswordDialog() {
+    final emailController = TextEditingController(text: _emailController.text.trim());
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset Password'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Enter your email to receive a password reset link.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email_outlined)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              // TODO: Call password reset API
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reset link sent (placeholder)')));
+            },
+            child: const Text('Send'),
+          ),
+        ],
+      ),
+    );
+  }
 }
