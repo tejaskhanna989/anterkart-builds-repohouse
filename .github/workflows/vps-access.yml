@@ -1,0 +1,64 @@
+name: VPS Access
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Shell command to run on the VPS'
+        required: true
+        default: 'whoami; hostname; pwd; ls -la ~'
+      local_file:
+        description: 'Optional local file to upload via SFTP'
+        required: false
+        default: ''
+      remote_file:
+        description: 'Destination path on the VPS'
+        required: false
+        default: ''
+      remote_dir:
+        description: 'Destination directory on the VPS'
+        required: false
+        default: ''
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Install sshpass
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq sshpass
+          echo installed
+
+      - name: Run command on the Otamzo VPS
+        env:
+          OTAMZO_SSH_PASSWORD: ${{ secrets.OTAMZO_SSH_PASSWORD }}
+          CMD: ${{ inputs.command }}
+        run: |
+          set -euo pipefail
+          sshpass -p "$OTAMZO_SSH_PASSWORD" ssh -p 65002 \
+            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            -o ConnectTimeout=25 -o LogLevel=ERROR \
+            u881842192@91.108.107.50 "$CMD"
+
+      - name: Upload a file over SFTP
+        env:
+          OTAMZO_SSH_PASSWORD: ${{ secrets.OTAMZO_SSH_PASSWORD }}
+          LOCAL_FILE: ${{ inputs.local_file }}
+          REMOTE_FILE: ${{ inputs.remote_file }}
+          REMOTE_DIR: ${{ inputs.remote_dir }}
+        run: |
+          set -euo pipefail
+          if [ -z "${LOCAL_FILE:-}" ]; then
+            echo "no local_file given - skipping upload"
+            exit 0
+          fi
+          export SSHPASS="$OTAMZO_SSH_PASSWORD"
+          mkdir -p /tmp/upload
+          cp "$LOCAL_FILE" /tmp/upload/payload
+          sshpass -e sftp -P 65002 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            u881842192@91.108.107.50 <<EOF
+            put /tmp/upload/payload "$REMOTE_FILE"
+            EOF
+          echo "uploaded $LOCAL_FILE -> $REMOTE_FILE"
