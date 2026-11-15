@@ -7,7 +7,7 @@
  * GET api/mobile/realtime/nearby_riders.php?store=<slug>&lat=24.85&lng=74.62&radius_km=1
  *   -> { success, data: { riders: [ {id, name, phone, lat, lng, distance_km} ], count } }
  */
-require_once __DIR__ . '/../../bootstrap.php';
+require_once __DIR__ . '/../bootstrap.php';
 
 $input = getInput();
 $lat = (float)($input['lat'] ?? 0);

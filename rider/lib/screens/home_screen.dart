@@ -320,6 +320,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 if ((r['ok'] as bool) && mounted) setState(() => _tab = 1);
 
+                // Accepting locks the order, but the food only leaves the
+                // counter once the rider proves the handover code. Ask for it
+                // straight away instead of hiding it in the order detail.
+                if ((r['ok'] as bool) && mounted) {
+
+                  final data = r['data'];
+
+                  final needsCode = data is Map && data['needs_code'] == true;
+
+                  if (needsCode) {
+
+                    final oid = int.tryParse('${off['order_id'] ?? 0}') ?? 0;
+
+                    final onum = '${off['order_number'] ?? oid}';
+
+                    if (oid > 0) await _askPickupCodeFor(oid, onum);
+
+                  }
+
+                }
+
               },
 
               child: const Text('Accept'),
@@ -344,6 +365,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _askPickupCode(Order o) async {
 
+    await _askPickupCodeFor(o.id, o.orderNumber);
+
+  }
+
+
+
+  /// Ask for the 4-digit counter handover code and verify it with the server.
+
+  Future<void> _askPickupCodeFor(int orderId, String orderNumber) async {
+
     final ctrl = TextEditingController();
 
     final code = await showDialog<String>(
@@ -354,7 +385,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       builder: (ctx) => AlertDialog(
 
-        title: Text('Pickup Code — #${o.orderNumber}'),
+        title: Text('Pickup Code — #$orderNumber'),
 
         content: Column(mainAxisSize: MainAxisSize.min, children: [
 
@@ -380,7 +411,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (code == null || code.isEmpty) return;
 
-    final r = await context.read<OrderProvider>().pickupOrder(o.id, code);
+    final r = await context.read<OrderProvider>().pickupOrder(orderId, code);
 
     _snack(r['message'] ?? (r['ok'] as bool ? 'Picked up!' : 'Failed'), r['ok'] as bool);
 
@@ -534,9 +565,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (!mounted) return;
 
-    _snack(r['message'] ?? 'Done', r['ok'] as bool);
+    final ok = r['ok'] as bool;
 
-    if ((r['ok'] as bool) && mounted) setState(() => _tab = 1);
+    _snack(r['message'] ?? 'Done', ok);
+
+    if (!ok) return;
+
+    // The server locks the order and asks for the counter code before the
+    // handover: prompt for it right away instead of leaving it buried in the
+    // "Assigned" tab.
+    final data = r['data'];
+    final needsCode = data is Map && data['needs_code'] == true;
+
+    if (needsCode) {
+      await _askPickupCode(o);
+    }
+
+    if (mounted) setState(() => _tab = 1);
 
   }
 

@@ -47,7 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
                   decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email_outlined, color: AppColors.blue)),
-                  validator: (v) => v != null && v.contains('@') ? null : 'Enter valid email',
+                  validator: (v) => v != null && v.contains('@') ? null : 'Please enter a valid email address',
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -63,17 +63,36 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: () => setState(() => _obscure = !_obscure),
                     ),
                   ),
-                  validator: (v) => v != null && v.length >= 6 ? null : 'Min 6 characters',
+                  validator: (v) => v != null && v.length >= 6 ? null : 'Password must be at least 6 characters',
                 ),
                 const SizedBox(height: 28),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: auth.isLoading ? null : _login,
-                    child: auth.isLoading
-                        ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                        : const Text('Sign In'),
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: auth.isLoading ? null : _login,
+                          child: auth.isLoading
+                              ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+                              : const Text('Sign In'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => _showResetPasswordDialog(),
+                        child: const Text('Forgot Password?', style: TextStyle(color: AppColors.blue, fontWeight: FontWeight.w500)),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

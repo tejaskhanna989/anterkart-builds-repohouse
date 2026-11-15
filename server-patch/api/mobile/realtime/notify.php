@@ -20,7 +20,7 @@
  * GET api/mobile/realtime/nearby_riders.php?store=<slug>&lat=..&lng=..&radius_km=1
  *   -> list of riders within the radius (used for diagnostics)
  */
-require_once __DIR__ . '/../../bootstrap.php';
+require_once __DIR__ . '/../bootstrap.php';
 
 $input = getInput();
 $isPost = $_SERVER['REQUEST_METHOD'] === 'POST';
@@ -84,7 +84,18 @@ if ($radius <= 0 || $radius > 25) $radius = 1.0;
 
 $near = [];
 if ($lat && $lng) {
-    $near = otamzo_nearby_riders($pdo, $lat, $lng, $radius);
+    // Scope the search to the store that owns the order so riders of another
+    // store are never woken up for it.
+    $tenantId = null;
+    if ($orderId) {
+        try {
+            $ostmt = $pdo->prepare("SELECT tenant_id FROM orders WHERE id=?");
+            $ostmt->execute([$orderId]);
+            $tenantId = $ostmt->fetchColumn();
+            $tenantId = $tenantId ? (int)$tenantId : null;
+        } catch (Throwable $e) { $tenantId = null; }
+    }
+    $near = otamzo_nearby_riders($pdo, $lat, $lng, $radius, $tenantId);
 }
 
 // Also notify every rider that has a live OneSignal subscription for this
