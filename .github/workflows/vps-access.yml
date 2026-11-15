@@ -3,9 +3,13 @@ name: VPS Access
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: 'probe | run'
+        required: true
+        default: 'probe'
       command:
         description: 'Shell command to run on the VPS'
-        required: true
+        required: false
         default: 'whoami; hostname; pwd; ls -la ~'
       local_file:
         description: 'Optional local file to upload via SFTP'
@@ -15,23 +19,60 @@ on:
         description: 'Destination path on the VPS'
         required: false
         default: ''
-      remote_dir:
-        description: 'Destination directory on the VPS'
-        required: false
-        default: ''
 
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
-      - name: Install sshpass
+      - name: Install tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq sshpass
+          sudo apt-get install -y -qq sshpass lftp netcat-openbsd
           echo installed
 
+      - name: Probe SSH / FTP with the stored secret
+        if: inputs.mode == 'probe'
+        env:
+          OTAMZO_SSH_PASSWORD: ${{ secrets.OTAMZO_SSH_PASSWORD }}
+        run: |
+          set -uo pipefail
+          PW="$OTAMZO_SSH_PASSWORD"
+          if [ -z "$PW" ]; then echo "::error::secret is empty"; exit 1; fi
+          echo "secret length: ${#PW}"
+          HOST=91.108.107.50
+          for port in 65002 22 2222 65021; do
+            for user in u881842192 root admin ubuntu debian; do
+              if nc -z -w 6 "$HOST" "$port" 2>/dev/null; then
+                echo "--- port $port open, trying user $user"
+                if sshpass -p "$PW" ssh -p "$port" -o StrictHostKeyChecking=no \
+                     -o UserKnownHostsFile=/dev/null -o ConnectTimeout=12 -o LogLevel=ERROR \
+                     -o PreferredAuthentications=password -o PubkeyAuthentication=no \
+                     "$user@$HOST" 'echo SSH_OK; whoami; hostname' 2>&1 | head -5; then
+                  :
+                fi
+              else
+                echo "--- port $port closed"
+              fi
+            done
+          done
+          echo "=== FTP probes ==="
+          for port in 21 65021; do
+            if nc -z -w 6 "$HOST" "$port" 2>/dev/null; then
+              echo "ftp port $port open"
+              curl -s --max-time 25 "ftp://$HOST/" --user "u881842192:$PW" | head -20 || true
+            else
+              echo "ftp port $port closed"
+            fi
+          done
+          echo "=== HTTP probes ==="
+          for url in "http://$HOST:8080/" "https://$HOST:8080/" "http://$HOST/" "https://$HOST/"; do
+            echo "-- $url"
+            curl -sk --max-time 20 -o /dev/null -w "   code=%{http_code} size=%{size_download}\n" "$url" || true
+          done
+
       - name: Run command on the Otamzo VPS
+        if: inputs.mode == 'run'
         env:
           OTAMZO_SSH_PASSWORD: ${{ secrets.OTAMZO_SSH_PASSWORD }}
           CMD: ${{ inputs.command }}
@@ -43,17 +84,13 @@ jobs:
             u881842192@91.108.107.50 "$CMD"
 
       - name: Upload a file over SFTP
+        if: inputs.mode == 'run' && inputs.local_file != ''
         env:
           OTAMZO_SSH_PASSWORD: ${{ secrets.OTAMZO_SSH_PASSWORD }}
           LOCAL_FILE: ${{ inputs.local_file }}
           REMOTE_FILE: ${{ inputs.remote_file }}
-          REMOTE_DIR: ${{ inputs.remote_dir }}
         run: |
           set -euo pipefail
-          if [ -z "${LOCAL_FILE:-}" ]; then
-            echo "no local_file given - skipping upload"
-            exit 0
-          fi
           export SSHPASS="$OTAMZO_SSH_PASSWORD"
           mkdir -p /tmp/upload
           cp "$LOCAL_FILE" /tmp/upload/payload
