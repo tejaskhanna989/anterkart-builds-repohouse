@@ -37,6 +37,7 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
                 "canDrawOverlays" -> result.success(AlertManager.canDrawOverlays(this))
+                "pendingAlertOrderId" -> result.success(AlertManager.pendingAlertOrderId())
                 "requestOverlayPermission" -> {
                     AlertManager.requestOverlayPermission(this)
                     result.success(true)

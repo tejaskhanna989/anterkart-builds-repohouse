@@ -9,6 +9,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.media.AudioManager
+import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
@@ -39,6 +41,7 @@ object AlertManager {
     private var lastTitle = "New delivery offer"
     private var lastBody = ""
     private var lastOrderId = 0
+    private var alarmPlayer: MediaPlayer? = null
 
     fun start(context: Context, title: String, body: String, orderId: Int) {
         val ctx = context.applicationContext
@@ -48,6 +51,7 @@ object AlertManager {
         lastOrderId = orderId
 
         raiseAlarmVolume(ctx)
+        startAlarmAudio(ctx)
         acquireWakeLock(ctx)
         ensureChannel(ctx)
         showFullScreenNotification(ctx)
@@ -63,7 +67,9 @@ object AlertManager {
         } catch (_: Throwable) {
         }
         releaseWakeLock()
+        stopAlarmAudio()
         unregisterUnlockReceiver(ctx)
+        lastOrderId = 0
     }
 
     fun canDrawOverlays(context: Context): Boolean {
@@ -73,6 +79,8 @@ object AlertManager {
             true
         }
     }
+
+    fun pendingAlertOrderId(): Int = lastOrderId
 
     fun requestOverlayPermission(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
@@ -106,6 +114,39 @@ object AlertManager {
             am.setStreamVolume(AudioManager.STREAM_ALARM, maxAlarm, 0)
         } catch (_: Throwable) {
         }
+    }
+
+    // Native playback covers pushes received before Flutter/Dart is running.
+    @Synchronized
+    private fun startAlarmAudio(ctx: Context) {
+        if (alarmPlayer?.isPlaying == true) return
+        stopAlarmAudio()
+        try {
+            val afd = ctx.assets.openFd("flutter_assets/assets/audio/new_order_alarm.wav")
+            val player = MediaPlayer()
+            player.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build(),
+            )
+            player.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+            afd.close()
+            player.isLooping = true
+            player.setVolume(1f, 1f)
+            player.setOnPreparedListener { it.start() }
+            player.prepareAsync()
+            alarmPlayer = player
+        } catch (_: Throwable) {
+            stopAlarmAudio()
+        }
+    }
+
+    @Synchronized
+    private fun stopAlarmAudio() {
+        try { alarmPlayer?.stop() } catch (_: Throwable) {}
+        try { alarmPlayer?.release() } catch (_: Throwable) {}
+        alarmPlayer = null
     }
 
     private fun acquireWakeLock(ctx: Context) {

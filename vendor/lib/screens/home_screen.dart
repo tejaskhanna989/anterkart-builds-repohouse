@@ -36,6 +36,16 @@ class _HomeScreenState extends State<HomeScreen> {
         _knownPending = context.read<OrderProvider>().pendingIds;
         context.read<StatsProvider>().loadStats();
         _startPolling();
+        final alertOrderId = await AlertService.pendingOrderId();
+        if (mounted && alertOrderId > 0) {
+          final orders = context.read<OrderProvider>().awaitingOrders;
+          for (final order in orders) {
+            if (order.id == alertOrderId) {
+              await _ringForOrder(order);
+              break;
+            }
+          }
+        }
       }
       // Ring + refresh when a push lands while the app is open.
       OneSignalService.addListeners();
@@ -96,10 +106,10 @@ class _HomeScreenState extends State<HomeScreen> {
     // makes the phone ring even from the lock screen.
     await AlertService.start(
       title: 'New Order!',
-      body: 'Order #${order.orderNumber} · ₹${order.total.toStringAsFixed(0)} — tap to accept',
+      body:
+          'Order #${order.orderNumber} · ₹${order.total.toStringAsFixed(0)} — tap to accept',
       orderId: order.id,
     );
-    await OrderAlarm.start();
     if (!mounted) {
       _dialogOpen = false;
       await _stopAlert();
@@ -114,7 +124,8 @@ class _HomeScreenState extends State<HomeScreen> {
           SizedBox(width: 8),
           Text('New Order!'),
         ]),
-        content: Text('Order #${order.orderNumber} · ₹${order.total.toStringAsFixed(0)} · ${order.itemCount} items\n${order.customerName ?? ''}'),
+        content: Text(
+            'Order #${order.orderNumber} · ₹${order.total.toStringAsFixed(0)} · ${order.itemCount} items\n${order.customerName ?? ''}'),
         actions: [
           TextButton(
             onPressed: () async {
@@ -127,7 +138,9 @@ class _HomeScreenState extends State<HomeScreen> {
             child: const Text('View'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.white),
             onPressed: () async {
               await _stopAlert();
               if (mounted) Navigator.pop(ctx);
@@ -162,7 +175,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final vendor = context.watch<AuthProvider>().vendor;
     return Scaffold(
       appBar: AppBar(
-        title: Text(vendor?.tenantName.isNotEmpty == true ? vendor!.tenantName : 'My Store'),
+        title: Text(vendor?.tenantName.isNotEmpty == true
+            ? vendor!.tenantName
+            : 'My Store'),
       ),
       body: IndexedStack(
         index: _tab,
@@ -180,10 +195,22 @@ class _HomeScreenState extends State<HomeScreen> {
         selectedItemColor: const Color(0xFFF97316),
         unselectedItemColor: Colors.grey,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), activeIcon: Icon(Icons.dashboard), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), activeIcon: Icon(Icons.receipt_long), label: 'Orders'),
-          BottomNavigationBarItem(icon: Icon(Icons.inventory_2_outlined), activeIcon: Icon(Icons.inventory_2), label: 'Products'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Profile'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.dashboard_outlined),
+              activeIcon: Icon(Icons.dashboard),
+              label: 'Home'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.receipt_long_outlined),
+              activeIcon: Icon(Icons.receipt_long),
+              label: 'Orders'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.inventory_2_outlined),
+              activeIcon: Icon(Icons.inventory_2),
+              label: 'Products'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Profile'),
         ],
       ),
     );
@@ -199,25 +226,46 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Row(
             children: [
-              Expanded(child: _statCard('Today', '₹${stats.todayRevenue.toStringAsFixed(0)}', '${stats.todayOrders} orders', Icons.payments_outlined)),
+              Expanded(
+                  child: _statCard(
+                      'Today',
+                      '₹${stats.todayRevenue.toStringAsFixed(0)}',
+                      '${stats.todayOrders} orders',
+                      Icons.payments_outlined)),
               const SizedBox(width: 12),
-              Expanded(child: _statCard('New orders', '${stats.pendingOrders}', 'need action', Icons.notifications_active_outlined)),
+              Expanded(
+                  child: _statCard('New orders', '${stats.pendingOrders}',
+                      'need action', Icons.notifications_active_outlined)),
             ],
           ),
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _statCard('Products', '${stats.totalProducts}', '${stats.activeProducts} active', Icons.inventory_2_outlined)),
+              Expanded(
+                  child: _statCard(
+                      'Products',
+                      '${stats.totalProducts}',
+                      '${stats.activeProducts} active',
+                      Icons.inventory_2_outlined)),
               const SizedBox(width: 12),
-              Expanded(child: _statCard('Low stock', '${stats.lowStock}', 'restock soon', Icons.warning_amber_outlined)),
+              Expanded(
+                  child: _statCard('Low stock', '${stats.lowStock}',
+                      'restock soon', Icons.warning_amber_outlined)),
             ],
           ),
           const SizedBox(height: 20),
-          const Text('Needs your action', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          const Text('Needs your action',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
           if (orders.newOrders.isEmpty && orders.awaitingOrders.isEmpty)
-            const Card(child: Padding(padding: EdgeInsets.all(20), child: Center(child: Text('All caught up! No new orders.', style: TextStyle(color: Colors.grey))))),
-          for (final o in [...orders.awaitingOrders, ...orders.newOrders].take(5))
+            const Card(
+                child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Center(
+                        child: Text('All caught up! No new orders.',
+                            style: TextStyle(color: Colors.grey))))),
+          for (final o
+              in [...orders.awaitingOrders, ...orders.newOrders].take(5))
             _orderCard(o),
         ],
       ),
@@ -233,9 +281,13 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Icon(icon, color: AppColors.orange),
             const SizedBox(height: 8),
-            Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+            Text(value,
+                style:
+                    const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
             Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-            Text(sub, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+            Text(sub,
+                style: const TextStyle(
+                    color: AppColors.textSecondary, fontSize: 12)),
           ],
         ),
       ),
@@ -256,7 +308,9 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: TabBarView(
               children: [
-                _orderList([...orderProv.awaitingOrders, ...orderProv.newOrders], empty: 'No new orders', acceptPending: true),
+                _orderList(
+                    [...orderProv.awaitingOrders, ...orderProv.newOrders],
+                    empty: 'No new orders', acceptPending: true),
                 _orderList(orderProv.activeOrders, empty: 'No active orders'),
                 _orderList(orderProv.pastOrders, empty: 'No past orders'),
               ],
@@ -277,14 +331,19 @@ class _HomeScreenState extends State<HomeScreen> {
       onAccept: isPending ? () => _advanceOrder(o.id, 'confirmed') : null,
       onReject: isPending ? () => _rejectOrder(o.id) : null,
       showActions: canAdvance || showReady,
-      onAdvance: (canAdvance || showReady) && !isPending ? (next) => _advanceOrder(o.id, next) : null,
+      onAdvance: (canAdvance || showReady) && !isPending
+          ? (next) => _advanceOrder(o.id, next)
+          : null,
       onTap: () => _openDetail(o.id),
     );
   }
 
-  Widget _orderList(List orders, {required String empty, bool acceptPending = false}) {
+  Widget _orderList(List orders,
+      {required String empty, bool acceptPending = false}) {
     if (orders.isEmpty) {
-      return Center(child: Text(empty, style: const TextStyle(color: Colors.grey, fontSize: 16)));
+      return Center(
+          child: Text(empty,
+              style: const TextStyle(color: Colors.grey, fontSize: 16)));
     }
     return RefreshIndicator(
       onRefresh: () => context.read<OrderProvider>().loadOrders(),
@@ -299,10 +358,15 @@ class _HomeScreenState extends State<HomeScreen> {
           return OrderCard(
             order: o,
             showAccept: acceptPending && isPending,
-            onAccept: acceptPending && isPending ? () => _advanceOrder(o.id, 'confirmed') : null,
-            onReject: acceptPending && isPending ? () => _rejectOrder(o.id) : null,
+            onAccept: acceptPending && isPending
+                ? () => _advanceOrder(o.id, 'confirmed')
+                : null,
+            onReject:
+                acceptPending && isPending ? () => _rejectOrder(o.id) : null,
             showActions: !isPending && (canAdvance || showReady),
-            onAdvance: !isPending && (canAdvance || showReady) ? (next) => _advanceOrder(o.id, next) : null,
+            onAdvance: !isPending && (canAdvance || showReady)
+                ? (next) => _advanceOrder(o.id, next)
+                : null,
             onTap: () => _openDetail(o.id),
           );
         },
@@ -311,7 +375,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openDetail(int orderId) async {
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => OrderDetailScreen(orderId: orderId)));
+    await Navigator.push(context,
+        MaterialPageRoute(builder: (_) => OrderDetailScreen(orderId: orderId)));
     if (mounted) _refreshAll();
   }
 
@@ -341,11 +406,15 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Reject order?'),
-        content: const Text('The customer will be notified. This cannot be undone.'),
+        content:
+            const Text('The customer will be notified. This cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Keep')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Reject'),
           ),
@@ -364,7 +433,8 @@ class _HomeScreenState extends State<HomeScreen> {
         Card(
           child: ListTile(
             leading: const CircleAvatar(child: Icon(Icons.storefront)),
-            title: Text(v?.tenantName.isNotEmpty == true ? v!.tenantName : 'My Store'),
+            title: Text(
+                v?.tenantName.isNotEmpty == true ? v!.tenantName : 'My Store'),
             subtitle: Text('${v?.name ?? ''}\n${v?.email ?? ''}'),
           ),
         ),
@@ -383,7 +453,10 @@ class _HomeScreenState extends State<HomeScreen> {
           onPressed: () async {
             await auth.logout();
             if (mounted) {
-              Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false);
+              Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (_) => false);
             }
           },
           icon: const Icon(Icons.logout),
@@ -404,21 +477,37 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Preparation time'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Shown to customers as "Usually takes X–Y min" and used for live ETA.'),
+          const Text(
+              'Shown to customers as "Usually takes X–Y min" and used for live ETA.'),
           const SizedBox(height: 12),
-          TextField(controller: minCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Minimum (mins)', border: OutlineInputBorder())),
+          TextField(
+              controller: minCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                  labelText: 'Minimum (mins)', border: OutlineInputBorder())),
           const SizedBox(height: 12),
-          TextField(controller: maxCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Maximum (mins)', border: OutlineInputBorder())),
+          TextField(
+              controller: maxCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                  labelText: 'Maximum (mins)', border: OutlineInputBorder())),
         ]),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Save')),
         ],
       ),
     );
     if (saved != true || !mounted) return;
-    final ok = await prov.savePrepTime(int.tryParse(minCtrl.text) ?? 15, int.tryParse(maxCtrl.text) ?? 25);
+    final ok = await prov.savePrepTime(
+        int.tryParse(minCtrl.text) ?? 15, int.tryParse(maxCtrl.text) ?? 25);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ok ? 'Preparation time saved' : 'Save failed'), backgroundColor: ok ? Colors.green : Colors.red));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(ok ? 'Preparation time saved' : 'Save failed'),
+        backgroundColor: ok ? Colors.green : Colors.red));
   }
 }

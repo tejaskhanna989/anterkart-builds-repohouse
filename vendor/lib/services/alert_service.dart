@@ -46,6 +46,15 @@ class AlertService {
     }
   }
 
+  /// Order ID that caused a native push alert, including on cold app start.
+  static Future<int> pendingOrderId() async {
+    try {
+      return (await _channel.invokeMethod<int>('pendingAlertOrderId')) ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   /// Open the system "Display over other apps" screen for this app.
   static Future<void> requestOverlayPermission() async {
     try {
