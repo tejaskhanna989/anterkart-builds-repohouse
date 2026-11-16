@@ -8,6 +8,13 @@ import com.onesignal.notifications.INotificationServiceExtension
 @Keep
 class OrderNotificationExtension : INotificationServiceExtension {
     override fun onNotificationReceived(event: INotificationReceivedEvent) {
+        // Ignore stale pushes when the rider is signed out; otherwise the
+        // native alarm can ring without an authenticated offer inbox.
+        val prefs = event.context.getSharedPreferences("FlutterSharedPreferences", 0)
+        if (prefs.getString("flutter.rider_token", null).isNullOrBlank() ||
+            prefs.getString("flutter.rider_data", null).isNullOrBlank()
+        ) return
+
         val notification = event.notification
         val data = notification.additionalData ?: return
         val type = data.optString("type", "")
