@@ -22,9 +22,11 @@ class _SplashScreenState extends State<SplashScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..forward();
-    Future.delayed(const Duration(seconds: 2), () {
+    Future.delayed(const Duration(seconds: 2), () async {
       if (!mounted) return;
       final auth = context.read<AuthProvider>();
+      await auth.init();
+      if (!mounted) return;
       if (auth.isLoggedIn) {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen()));
       } else {

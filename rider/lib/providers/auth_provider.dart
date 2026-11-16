@@ -9,13 +9,16 @@ class AuthProvider extends ChangeNotifier {
   Rider? _rider;
   String? _token;
   bool _isLoading = false;
+  Future<void>? _initFuture;
 
   Rider? get rider => _rider;
   String? get token => _token;
   bool get isLoggedIn => _token != null && _rider != null;
   bool get isLoading => _isLoading;
 
-  Future<void> init() async {
+  Future<void> init() => _initFuture ??= _restoreSession();
+
+  Future<void> _restoreSession() async {
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString('rider_token');
     final rData = prefs.getString('rider_data');
@@ -23,7 +26,15 @@ class AuthProvider extends ChangeNotifier {
       try {
         _rider = Rider.fromJson(jsonDecode(rData));
         OneSignalService.loginAsRider(_rider!.id);
-      } catch (_) {}
+      } catch (_) {
+        _rider = null;
+        _token = null;
+        await ApiService.clearToken();
+      }
+    } else {
+      _rider = null;
+      _token = null;
+      await ApiService.clearToken();
     }
     notifyListeners();
   }
@@ -31,7 +42,8 @@ class AuthProvider extends ChangeNotifier {
   Future<String?> login(String email, String password) async {
     _isLoading = true;
     notifyListeners();
-    final res = await ApiService.post('rider/auth/login.php', body: {'email': email, 'password': password});
+    final res = await ApiService.post('rider/auth/login.php',
+        body: {'email': email, 'password': password});
     _isLoading = false;
     if (res['success'] == true) {
       _rider = Rider.fromJson(res['data']['rider']);
