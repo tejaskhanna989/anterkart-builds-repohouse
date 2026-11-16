@@ -4,7 +4,9 @@ import 'package:audioplayers/audioplayers.dart';
 /// (rider taps Accept / Decline / dismisses the new-order dialog).
 ///
 /// Uses the alarm usage type so it is audible over other sounds and keeps
-/// the CPU awake while the screen is off.
+/// the CPU awake while the screen is off. The native alert ([AlertService])
+/// forces the alarm stream to maximum; [stop] fades the sound out quickly so an
+/// accepted offer is silenced instantly without an abrupt click.
 class OrderAlarm {
   OrderAlarm._();
 
@@ -40,10 +42,24 @@ class OrderAlarm {
     }
   }
 
-  static Future<void> stop() async {
+  /// Stop the alarm. When [fade] is true the volume is ramped down over a few
+  /// frames first, so tapping Accept silences the alarm instantly but cleanly.
+  static Future<void> stop({bool fade = true}) async {
+    final wasRinging = _ringing;
     _ringing = false;
+    if (wasRinging && fade) {
+      try {
+        for (var i = 9; i >= 0; i--) {
+          await _player.setVolume(i / 10);
+          await Future<void>.delayed(const Duration(milliseconds: 18));
+        }
+      } catch (_) {}
+    }
     try {
       await _player.stop();
+    } catch (_) {}
+    try {
+      await _player.setVolume(1.0);
     } catch (_) {}
   }
 }

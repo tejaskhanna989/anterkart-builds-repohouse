@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:location/location.dart' as loc;
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/order.dart';
 import '../providers/order_provider.dart';
@@ -261,29 +262,36 @@ class _DeliveryMapScreenState extends State<DeliveryMapScreen> {
                         Row(children: [
                           Expanded(
                             child: OutlinedButton.icon(
-                              onPressed: _destination == null
-                                  ? null
-                                  : () => _openDirections(_destination!),
-                              icon: const Icon(Icons.directions),
-                              label: const Text('Directions'),
+                              onPressed: _store == null ? null : () => _openDirections(_store!),
+                              icon: const Icon(Icons.store_mall_directory),
+                              label: const Text('Route to store'),
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: FilledButton.icon(
-                              onPressed: () async {
-                                await _refreshRiderPosition();
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Location shared with the server')),
-                                  );
-                                }
-                              },
-                              icon: const Icon(Icons.upload),
-                              label: const Text('Share GPS'),
+                            child: OutlinedButton.icon(
+                              onPressed: _destination == null ? null : () => _openDirections(_destination!),
+                              icon: const Icon(Icons.directions),
+                              label: const Text('Route to customer'),
                             ),
                           ),
                         ]),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: () async {
+                              await _refreshRiderPosition();
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Location shared with the server')),
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.upload),
+                            label: const Text('Share GPS'),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -316,20 +324,13 @@ class _DeliveryMapScreenState extends State<DeliveryMapScreen> {
     );
   }
 
-  void _openDirections(LatLng target) {
+  Future<void> _openDirections(LatLng target) async {
     final url = Uri.parse(
-        'https://www.google.com/maps/dir/?api=1&destination=${target.latitude},${target.longitude}');
-    // Ignore failures — the app already shows the pin on the map.
-    // ignore: invalid_use_of_visible_for_testing_member
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Destination'),
-        content: Text('${target.latitude.toStringAsFixed(5)}, ${target.longitude.toStringAsFixed(5)}\n\n$url'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
-        ],
-      ),
-    );
+        'https://www.google.com/maps/dir/?api=1&destination=${target.latitude},${target.longitude}&travelmode=driving&dir_action=navigate');
+    try {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // Ignore failures — the pin is already shown on the in-app map.
+    }
   }
 }

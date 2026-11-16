@@ -4,11 +4,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'package:flutter_map/flutter_map.dart';
+
+import 'package:latlong2/latlong.dart';
+
 import 'package:provider/provider.dart';
 
 import '../models/order.dart';
-
-import '../config/api_config.dart';
 
 import '../providers/auth_provider.dart';
 
@@ -21,7 +23,7 @@ import '../providers/location_provider.dart';
 import '../services/onesignal_service.dart';
 
 import '../services/order_alarm.dart';
-import '../services/offer_proximity.dart';
+import '../services/alert_service.dart';
 
 import '../widgets/order_card.dart';
 
@@ -115,6 +117,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
       };
 
+      // Make sure the app may pull itself to the front for a new offer even
+      // while the phone is in use ("Display over other apps").
+      AlertService.ensureOverlayPermission();
+
     });
 
   }
@@ -175,22 +181,10 @@ class _HomeScreenState extends State<HomeScreen> {
   /// rider cannot reach in time.
   Future<void> _handleNewOffer(Map<String, dynamic> offer) async {
 
+    // Every offer rings and pops up — assignment is pure first-tap-wins on
+    // the server, so no distance filtering happens on the device.
+
     if (_dialogOpen) return;
-
-    final loc = context.read<LocationProvider>();
-
-    final distance = OfferProximity.distanceToOffer(
-      offer,
-      riderLat: loc.lastLat,
-      riderLng: loc.lastLng,
-      fallbackLat: ApiConfig.storeLat,
-      fallbackLng: ApiConfig.storeLng,
-    );
-
-    if (distance != null && distance > ApiConfig.nearbyRadiusKm) {
-      _snack('New offer ${distance.toStringAsFixed(1)} km away — no alarm', true);
-      return;
-    }
 
     await _showRiderOfferModal(offer);
 
@@ -222,6 +216,115 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
 
+  /// Stop both the native alert (notification, wake lock, unlock listener) and
+  /// the looping alarm sound.
+  Future<void> _stopOfferAlert() async {
+    await AlertService.stop();
+    await OrderAlarm.stop();
+  }
+
+  double? _num(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString().trim());
+  }
+
+  String _kmText(dynamic km) {
+    final d = _num(km);
+    return d == null ? '—' : '${d.toStringAsFixed(1)} km';
+  }
+
+  String _minsText(dynamic mins) {
+    final m = _num(mins);
+    return m == null ? '' : ' (~${m.round()} min)';
+  }
+
+  String? _coordText(dynamic lat, dynamic lng) {
+    final a = _num(lat);
+    final b = _num(lng);
+    if (a == null || b == null || (a == 0 && b == 0)) return null;
+    return '${a.toStringAsFixed(4)}, ${b.toStringAsFixed(4)}';
+  }
+
+  String _storeText(Map<String, dynamic> off) {
+    final name = '${off['store_name'] ?? ''}'.trim();
+    final coords = _coordText(off['store_lat'], off['store_lng']);
+    if (name.isNotEmpty && coords != null) return '$name · $coords';
+    if (name.isNotEmpty) return name;
+    return coords ?? '—';
+  }
+
+  LatLng? _point(dynamic lat, dynamic lng) {
+    final a = _num(lat);
+    final b = _num(lng);
+    if (a == null || b == null || (a == 0 && b == 0)) return null;
+    return LatLng(a, b);
+  }
+
+  Widget _offerInfoRow(IconData icon, String label, String value, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600], fontWeight: FontWeight.w600)),
+          Text(value, style: const TextStyle(fontSize: 13)),
+        ])),
+      ]),
+    );
+  }
+
+  Widget _mapPin(Color color, IconData icon) {
+    return Container(
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))]),
+      child: Icon(icon, color: Colors.white, size: 18),
+    );
+  }
+
+  /// Small route preview inside the offer dialog: rider → store → customer.
+  Widget _offerMiniMap(Map<String, dynamic> off) {
+    final rider = _point(off['rider_lat'], off['rider_lng']);
+    final store = _point(off['store_lat'], off['store_lng']);
+    final cust = _point(off['customer_lat'], off['customer_lng']);
+    final center = rider ?? store ?? cust;
+    if (center == null) return const SizedBox.shrink();
+    final points = <LatLng>[
+      if (rider != null) rider,
+      if (store != null) store,
+      if (cust != null) cust,
+    ];
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: SizedBox(
+        height: 160,
+        width: double.infinity,
+        child: FlutterMap(
+          options: MapOptions(
+            initialCenter: center,
+            initialZoom: 13.5,
+            interactionOptions: const InteractionOptions(flags: InteractiveFlag.none),
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.otamzo.rider',
+            ),
+            if (points.length > 1)
+              PolylineLayer(polylines: [Polyline(points: points, color: const Color(0xFF2563EB), strokeWidth: 4)]),
+            MarkerLayer(markers: [
+              if (rider != null) Marker(point: rider, width: 34, height: 34, child: _mapPin(const Color(0xFF2563EB), Icons.delivery_dining)),
+              if (store != null) Marker(point: store, width: 34, height: 34, child: _mapPin(const Color(0xFF10B981), Icons.store)),
+              if (cust != null) Marker(point: cust, width: 34, height: 34, child: _mapPin(const Color(0xFFEF4444), Icons.home)),
+            ]),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+
   /// Persistent full-screen alarm for a new delivery offer. Rings until the
 
   /// rider accepts or declines — cannot be dismissed by tapping outside.
@@ -230,13 +333,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
     _dialogOpen = true;
 
+    // Native alert first: max alarm volume, wake lock, full-screen
+    // notification and (when allowed) pull the app to the front — this is what
+    // makes the phone ring even from the lock screen.
+    await AlertService.start(
+      title: 'New Delivery Offer',
+      body: 'Order #${off['order_number']} · ₹${off['total']} — tap to accept',
+      orderId: int.tryParse('${off['order_id']}') ?? 0,
+    );
+
     await OrderAlarm.start();
 
     if (!mounted) {
 
       _dialogOpen = false;
 
-      await OrderAlarm.stop();
+      await _stopOfferAlert();
 
       return;
 
@@ -258,19 +370,47 @@ class _HomeScreenState extends State<HomeScreen> {
 
           title: const Text('New Delivery Offer', style: TextStyle(fontWeight: FontWeight.bold)),
 
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-            Text('Order #${off['order_number']}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('Order #${off['order_number']}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
 
-            const SizedBox(height: 8),
+              const SizedBox(height: 4),
 
-            Text('₹${off['total']}', style: const TextStyle(fontSize: 16)),
+              Text('₹${off['total']}', style: const TextStyle(fontSize: 16)),
 
-            const SizedBox(height: 8),
+              const SizedBox(height: 12),
 
-            Text('Respond now — the alarm keeps ringing until you accept or decline.', style: TextStyle(color: Colors.grey[700], fontSize: 14)),
+              _offerInfoRow(Icons.my_location, 'Your location', _coordText(off['rider_lat'], off['rider_lng']) ?? 'Locating…', const Color(0xFF2563EB)),
 
-          ]),
+              _offerInfoRow(Icons.store, 'Pickup', _storeText(off), const Color(0xFF10B981)),
+
+              _offerInfoRow(Icons.home, 'Deliver to', '${off['address'] ?? ''}'.trim().isEmpty ? '—' : '${off['address']}', const Color(0xFFEF4444)),
+
+              const SizedBox(height: 10),
+
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(8)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Total trip: ${_kmText(off['total_km'])}${_minsText(off['total_mins'])}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 2),
+                  Text('You → store: ${_kmText(off['to_store_km'])}${_minsText(off['to_store_mins'])}', style: const TextStyle(fontSize: 12)),
+                  Text('Store → customer: ${_kmText(off['store_to_customer_km'])}${_minsText(off['store_to_customer_mins'])}', style: const TextStyle(fontSize: 12)),
+                ]),
+              ),
+
+              const SizedBox(height: 10),
+
+              _offerMiniMap(off),
+
+              const SizedBox(height: 8),
+
+              Text('Respond now — the alarm keeps ringing until you accept or decline.', style: TextStyle(color: Colors.grey[700], fontSize: 13)),
+
+            ]),
+          ),
 
           actions: [
 
@@ -278,7 +418,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               onPressed: () async {
 
-                await OrderAlarm.stop();
+                await _stopOfferAlert();
 
                 final r = await context.read<OrderProvider>().respondOffer(offerId, false);
 
@@ -306,7 +446,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               onPressed: () async {
 
-                await OrderAlarm.stop();
+                await _stopOfferAlert();
 
                 final r = await context.read<OrderProvider>().respondOffer(offerId, true);
 
@@ -357,7 +497,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     _dialogOpen = false;
 
-    await OrderAlarm.stop();
+    await _stopOfferAlert();
 
   }
 

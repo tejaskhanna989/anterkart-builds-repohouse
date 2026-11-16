@@ -141,9 +141,40 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     }
   }
 
-  void _navigate() {
-    final addr = Uri.encodeComponent(_order?.address ?? '');
-    launchUrl(Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$addr&travelmode=driving&dir_action=navigate'));
+  void _navigate() => _openDirections(toStore: false);
+
+  /// Open the route map to the store (pickup) or the customer (drop-off).
+  ///
+  /// Uses the coordinates from the API when present, falls back to the
+  /// customer's address, and finally to the in-app live map when nothing is
+  /// known.
+  Future<void> _openDirections({required bool toStore}) async {
+    final o = _order;
+    if (o == null) return;
+    final lat = toStore ? o.storeLat : o.deliveryLat;
+    final lng = toStore ? o.storeLng : o.deliveryLng;
+    String? destination;
+    if (lat != null && lng != null && !(lat == 0 && lng == 0)) {
+      destination = '$lat,$lng';
+    } else if (!toStore && (o.address ?? '').trim().isNotEmpty) {
+      destination = Uri.encodeComponent(o.address!.trim());
+    }
+    if (destination == null) {
+      if (mounted) {
+        await Navigator.push(context, MaterialPageRoute(builder: (_) => DeliveryMapScreen(orderId: o.id, order: o)));
+      }
+      return;
+    }
+    final uri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$destination&travelmode=driving&dir_action=navigate');
+    var opened = false;
+    try {
+      opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      opened = false;
+    }
+    if (!opened && mounted) {
+      await Navigator.push(context, MaterialPageRoute(builder: (_) => DeliveryMapScreen(orderId: o.id, order: o)));
+    }
   }
 
   @override
@@ -225,16 +256,50 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   List<Widget> _actions(Order order) {
     switch (order.status) {
+      case 'confirmed':
+      case 'preparing':
+        return [
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _openDirections(toStore: true),
+              icon: const Icon(Icons.store_mall_directory, color: Color(0xFF2563EB)),
+              label: const Text('Route to store (pickup)'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Card(child: Padding(padding: const EdgeInsets.all(14), child: Text(_statusHint(order.status), style: const TextStyle(fontSize: 13)))),
+        ];
       case 'ready':
         return [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB), foregroundColor: Colors.white),
+              onPressed: () => _openDirections(toStore: true),
+              icon: const Icon(Icons.store_mall_directory),
+              label: const Text('Route to store (pickup)'),
+            ),
+          ),
+          const SizedBox(height: 8),
           SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: () => _arrived('store'), icon: const Icon(Icons.storefront), label: const Text("I've arrived at the restaurant"))),
           const SizedBox(height: 8),
           SizedBox(width: double.infinity, child: ElevatedButton(onPressed: _askCode, child: const Text('Enter pickup code'))),
         ];
       case 'out_for_delivery':
         return [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB), foregroundColor: Colors.white),
+              onPressed: () => _openDirections(toStore: false),
+              icon: const Icon(Icons.navigation),
+              label: const Text('Route to customer'),
+            ),
+          ),
+          const SizedBox(height: 8),
           Row(children: [
-            Expanded(child: OutlinedButton.icon(onPressed: _navigate, icon: const Icon(Icons.navigation), label: const Text('Navigate'))),
+            Expanded(child: OutlinedButton.icon(onPressed: () => _openDirections(toStore: false), icon: const Icon(Icons.map_outlined), label: const Text('Live map'))),
             const SizedBox(width: 8),
             Expanded(
               child: OutlinedButton.icon(

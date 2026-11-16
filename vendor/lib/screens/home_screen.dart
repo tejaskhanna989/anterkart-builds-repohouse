@@ -7,6 +7,7 @@ import '../providers/auth_provider.dart';
 import '../providers/order_provider.dart';
 import '../providers/stats_provider.dart';
 import '../services/onesignal_service.dart';
+import '../services/alert_service.dart';
 import '../services/order_alarm.dart';
 import '../theme/app_theme.dart';
 import '../widgets/order_card.dart';
@@ -48,6 +49,9 @@ class _HomeScreenState extends State<HomeScreen> {
       OneSignalService.onPushClick = () {
         if (mounted) setState(() => _tab = 1);
       };
+      // Make sure the app may pull itself to the front for a new order even
+      // while the phone is in use ("Display over other apps").
+      AlertService.ensureOverlayPermission();
     });
   }
 
@@ -75,15 +79,30 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       _ringForOrder(order);
     }
-    if (current.isEmpty) OrderAlarm.stop();
+    if (current.isEmpty) _stopAlert();
+  }
+
+  /// Stop both the native alert (notification, wake lock, unlock listener) and
+  /// the looping alarm sound.
+  Future<void> _stopAlert() async {
+    await AlertService.stop();
+    await OrderAlarm.stop();
   }
 
   Future<void> _ringForOrder(Order order) async {
     _dialogOpen = true;
+    // Native alert first: max alarm volume, wake lock, full-screen
+    // notification and (when allowed) pull the app to the front — this is what
+    // makes the phone ring even from the lock screen.
+    await AlertService.start(
+      title: 'New Order!',
+      body: 'Order #${order.orderNumber} · ₹${order.total.toStringAsFixed(0)} — tap to accept',
+      orderId: order.id,
+    );
     await OrderAlarm.start();
     if (!mounted) {
       _dialogOpen = false;
-      await OrderAlarm.stop();
+      await _stopAlert();
       return;
     }
     await showDialog(
@@ -99,7 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           TextButton(
             onPressed: () async {
-              await OrderAlarm.stop();
+              await _stopAlert();
               if (mounted) {
                 Navigator.pop(ctx);
                 setState(() => _tab = 1);
@@ -110,7 +129,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), foregroundColor: Colors.white),
             onPressed: () async {
-              await OrderAlarm.stop();
+              await _stopAlert();
               if (mounted) Navigator.pop(ctx);
               _advanceOrder(order.id, 'confirmed');
             },
@@ -120,13 +139,13 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
     _dialogOpen = false;
-    await OrderAlarm.stop();
+    await _stopAlert();
   }
 
   @override
   void dispose() {
     _pollTimer?.cancel();
-    OrderAlarm.stop();
+    _stopAlert();
     super.dispose();
   }
 
@@ -299,7 +318,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _advanceOrder(int orderId, String next) async {
     final ok = await context.read<OrderProvider>().updateStatus(orderId, next);
     if (!mounted) return;
-    if (next == 'confirmed') OrderAlarm.stop();
+    if (next == 'confirmed') _stopAlert();
     if (mounted) _knownPending = context.read<OrderProvider>().pendingIds;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(ok
