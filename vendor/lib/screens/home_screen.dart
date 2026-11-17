@@ -6,6 +6,7 @@ import '../models/order.dart';
 import '../providers/auth_provider.dart';
 import '../providers/order_provider.dart';
 import '../providers/stats_provider.dart';
+import '../services/api_service.dart';
 import '../services/onesignal_service.dart';
 import '../services/alert_service.dart';
 import '../services/order_alarm.dart';
@@ -14,6 +15,7 @@ import '../widgets/order_card.dart';
 import 'login_screen.dart';
 import 'order_detail_screen.dart';
 import 'products_screen.dart';
+import 'rider_schedule_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -179,6 +181,8 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildDashboard(),
           _buildOrders(),
           const ProductsScreen(),
+          _buildNotifications(),
+          const RiderScheduleScreen(),
           _buildProfile(),
         ],
       ),
@@ -192,6 +196,8 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), activeIcon: Icon(Icons.dashboard), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), activeIcon: Icon(Icons.receipt_long), label: 'Orders'),
           BottomNavigationBarItem(icon: Icon(Icons.inventory_2_outlined), activeIcon: Icon(Icons.inventory_2), label: 'Products'),
+          BottomNavigationBarItem(icon: Icon(Icons.notifications_outlined), activeIcon: Icon(Icons.notifications), label: 'Alerts'),
+          BottomNavigationBarItem(icon: Icon(Icons.schedule_outlined), activeIcon: Icon(Icons.schedule), label: 'Riders'),
           BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
@@ -362,6 +368,75 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
     if (confirm == true) _advanceOrder(orderId, 'cancelled');
+  }
+
+  Widget _buildNotifications() {
+    final token = context.read<AuthProvider>().token;
+    return FutureBuilder(
+      future: ApiService.get('vendor/orders/notifications.php', auth: true),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+        final data = snapshot.data as Map<String, dynamic>?;
+        final notifications = data?['data']?['notifications'] as List<dynamic>? ?? [];
+
+        if (notifications.isEmpty) {
+          return const Center(child: Text('No notifications', style: TextStyle(color: Colors.grey)));
+        }
+
+        return RefreshIndicator(
+          onRefresh: () async => setState(() {}),
+          child: ListView.builder(
+            padding: const EdgeInsets.all(12),
+            itemCount: notifications.length,
+            itemBuilder: (_, i) {
+              final n = notifications[i] as Map<String, dynamic>;
+              final isRead = n['is_read'] == 1;
+              return Card(
+                color: isRead ? null : const Color(0xFFFFF7ED),
+                child: ListTile(
+                  leading: Icon(
+                    n['type'] == 'rider_unavailable' ? Icons.person_off : Icons.notifications,
+                    color: isRead ? Colors.grey : const Color(0xFFF97316),
+                  ),
+                  title: Text(n['title'] ?? '',
+                      style: TextStyle(fontWeight: isRead ? FontWeight.normal : FontWeight.bold)),
+                  subtitle: Text(n['message'] ?? ''),
+                  trailing: Text(_formatTime(n['created_at']),
+                      style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  onTap: () async {
+                    if (!isRead) {
+                      await ApiService.post('vendor/orders/notification_read.php', auth: true,
+                          body: {'notification_id': n['id']});
+                      setState(() {});
+                    }
+                  },
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  String _formatTime(String? dt) {
+    if (dt == null) return '';
+    try {
+      final d = DateTime.parse(dt);
+      final now = DateTime.now();
+      final diff = now.difference(d);
+      if (diff.inMinutes < 1) return 'Just now';
+      if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+      if (diff.inDays < 1) return '${diff.inHours}h ago';
+      return '${diff.inDays}d ago';
+    } catch (_) {
+      return '';
+    }
   }
 
   Widget _buildProfile() {

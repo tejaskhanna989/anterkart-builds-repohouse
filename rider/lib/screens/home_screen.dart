@@ -20,6 +20,8 @@ import '../providers/earnings_provider.dart';
 
 import '../providers/location_provider.dart';
 
+import '../services/api_service.dart';
+
 import '../services/onesignal_service.dart';
 
 import '../services/order_alarm.dart';
@@ -155,6 +157,33 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
 
+  Future<void> _reofferPendingOffers() async {
+
+  Future<void> _setAvailability(bool available) async {
+    try {
+      final res = await ApiService.post('rider/orders/availability_override.php', auth: true, body: {
+        'is_available': available ? 1 : 0,
+        'reason': available ? 'Available again' : 'Marked unavailable by rider',
+      });
+      if (!mounted) return;
+      if (res['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(available ? 'You are now available' : 'You are now unavailable'), backgroundColor: Colors.green));
+        // Refresh to update the rider data
+        await context.read<AuthProvider>().init();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(res['message'] ?? 'Failed to update'), backgroundColor: Colors.red));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+    }
+  }
+
+
+  Future<void> _reofferPendingOffers() async {
   Future<void> _reofferPendingOffers() async {
 
     final prov = context.read<OrderProvider>();
@@ -1059,6 +1088,28 @@ class _HomeScreenState extends State<HomeScreen> {
 
           title: Text('Status: ${rider?.status == 'active' ? 'Active' : 'Inactive'}'),
 
+        ),
+
+        const Divider(),
+
+        // Availability toggle for today
+        StatefulBuilder(
+          builder: (context, setState) {
+            final isAvailable = rider?.available == 1;
+            return SwitchListTile(
+              secondary: Icon(isAvailable ? Icons.check_circle : Icons.cancel,
+                  color: isAvailable ? Colors.green : Colors.red),
+              title: Text(isAvailable ? 'Available today' : 'Unavailable today',
+                  style: TextStyle(fontWeight: FontWeight.w600,
+                      color: isAvailable ? Colors.green[700] : Colors.red[700])),
+              subtitle: Text(isAvailable
+                  ? 'You will receive delivery offers'
+                  : 'You will NOT receive delivery offers today'),
+              value: isAvailable,
+              activeColor: Colors.green,
+              onChanged: (val) => _setAvailability(val),
+            );
+          },
         ),
 
         const Divider(),
