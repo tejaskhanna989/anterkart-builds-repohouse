@@ -49,7 +49,7 @@ class AuthProvider extends ChangeNotifier {
       await ApiService.setToken(_token);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('customer_data', jsonEncode(res['data']['customer']));
-      await prefs.setString('auth_token', _token);
+      await prefs.setString('auth_token', _token!);
       _setOneSignalLogin(_customer!.id);
       await OneSignalService.requestPermission();
       notifyListeners();
@@ -70,7 +70,7 @@ class AuthProvider extends ChangeNotifier {
       await ApiService.setToken(_token);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('customer_data', jsonEncode(res['data']['customer']));
-      await prefs.setString('auth_token', _token);
+      await prefs.setString('auth_token', _token!);
       _setOneSignalLogin(_customer!.id);
       await OneSignalService.requestPermission();
       notifyListeners();
