@@ -22,6 +22,9 @@ import '../providers/location_provider.dart';
 
 import '../services/api_service.dart';
 
+
+
+
 import '../services/onesignal_service.dart';
 
 import '../services/order_alarm.dart';
@@ -155,10 +158,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   }
 
-
-
-  Future<void> _reofferPendingOffers() async {
-
   Future<void> _setAvailability(bool available) async {
     try {
       final res = await ApiService.post('rider/orders/availability_override.php', auth: true, body: {
@@ -169,7 +168,6 @@ class _HomeScreenState extends State<HomeScreen> {
       if (res['success'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(available ? 'You are now available' : 'You are now unavailable'), backgroundColor: Colors.green));
-        // Refresh to update the rider data
         await context.read<AuthProvider>().init();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -183,7 +181,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
 
-  Future<void> _reofferPendingOffers() async {
   Future<void> _reofferPendingOffers() async {
 
     final prov = context.read<OrderProvider>();
