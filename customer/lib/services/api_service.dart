@@ -27,7 +27,6 @@ class ApiService {
     _token = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
-    await prefs.remove('customer_data');
   }
 
   static Map<String, String> _headers({String? token, String contentType = 'application/json'}) {

@@ -9,13 +9,16 @@ class AuthProvider extends ChangeNotifier {
   Customer? _customer;
   String? _token;
   bool _isLoading = false;
+  Future<void>? _initFuture;
 
   Customer? get customer => _customer;
   String? get token => _token;
   bool get isLoggedIn => _token != null && _customer != null;
   bool get isLoading => _isLoading;
 
-  Future<void> init() async {
+  Future<void> init() => _initFuture ??= _restoreSession();
+
+  Future<void> _restoreSession() async {
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString('auth_token');
     final cData = prefs.getString('customer_data');
@@ -23,7 +26,14 @@ class AuthProvider extends ChangeNotifier {
       try {
         _customer = Customer.fromJson(jsonDecode(cData));
         _setOneSignalLogin(_customer!.id);
-      } catch (_) {}
+      } catch (_) {
+        _customer = null;
+        _token = null;
+        await ApiService.clearToken();
+      }
+    } else {
+      _customer = null;
+      _token = null;
     }
     notifyListeners();
   }
@@ -39,6 +49,7 @@ class AuthProvider extends ChangeNotifier {
       await ApiService.setToken(_token);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('customer_data', jsonEncode(res['data']['customer']));
+      await prefs.setString('auth_token', _token);
       _setOneSignalLogin(_customer!.id);
       await OneSignalService.requestPermission();
       notifyListeners();
@@ -59,6 +70,7 @@ class AuthProvider extends ChangeNotifier {
       await ApiService.setToken(_token);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('customer_data', jsonEncode(res['data']['customer']));
+      await prefs.setString('auth_token', _token);
       _setOneSignalLogin(_customer!.id);
       await OneSignalService.requestPermission();
       notifyListeners();
@@ -73,6 +85,9 @@ class AuthProvider extends ChangeNotifier {
     _customer = null;
     _token = null;
     await ApiService.clearToken();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_token');
+    await prefs.remove('customer_data');
     _setOneSignalLogout();
     notifyListeners();
   }
