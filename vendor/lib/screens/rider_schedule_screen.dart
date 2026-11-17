@@ -200,7 +200,7 @@ class _RiderScheduleCardState extends State<_RiderScheduleCard> {
                                 Checkbox(value: sched['is_active'] ?? false, onChanged: null),
                               ]),
                     ]),
-                  );
+                  ),
                 }),
                 const SizedBox(height: 12),
                 Row(mainAxisAlignment: MainAxisAlignment.end, children: [
