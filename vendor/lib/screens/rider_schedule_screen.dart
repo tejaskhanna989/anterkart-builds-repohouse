@@ -28,7 +28,6 @@ class _RiderScheduleScreenState extends State<RiderScheduleScreen> {
   Future<void> _loadSchedules() async {
     setState(() { _loading = true; _error = null; });
     try {
-      final token = context.read<AuthProvider>().token;
       final res = await ApiService.get('vendor/orders/riders_schedule.php', auth: true);
       if (res['success'] == true) {
         setState(() {
@@ -132,11 +131,10 @@ class _RiderScheduleCard extends StatefulWidget {
 
 class _RiderScheduleCardState extends State<_RiderScheduleCard> {
   final Map<int, Map<String, dynamic>> _edits = {};
-  final Map<int, bool> _expanded = {};
 
   Map<String, dynamic> _getSchedule(List<dynamic> schedules, int day) {
     try {
-      return schedules.firstWhere((s) => s['day_of_week'] == day);
+      return schedules.firstWhere((s) => s['day_of_week'] == day) as Map<String, dynamic>;
     } catch (_) {
       return {'start_time': '09:00', 'end_time': '22:00', 'is_active': false};
     }
@@ -199,8 +197,9 @@ class _RiderScheduleCardState extends State<_RiderScheduleCard> {
                                 SizedBox(width: 100, child: Text(sched['end_time']?.substring(0, 5) ?? '—', style: TextStyle(color: sched['is_active'] ? null : Colors.grey))),
                                 Checkbox(value: sched['is_active'] ?? false, onChanged: null),
                               ]),
+                      ),
                     ]),
-                  ),
+                  );
                 }),
                 const SizedBox(height: 12),
                 Row(mainAxisAlignment: MainAxisAlignment.end, children: [
