@@ -67,6 +67,17 @@ class ApiService {
       if (response.statusCode >= 500) return {'success': false, 'message': 'Server error', 'data': {}};
       return jsonDecode(response.body);
     } catch (e) {
+      print('[ApiService] POST error: $e');
+      print('[ApiService] Error type: ${e.runtimeType}');
+      if (e.toString().contains('SocketException')) {
+        return {'success': false, 'message': 'Connection failed. Check internet connection.', 'data': {}};
+      } else if (e.toString().contains('TimeoutException')) {
+        return {'success': false, 'message': 'Request timed out. Server may be slow.', 'data': {}};
+      } else if (e.toString().contains('HttpException')) {
+        return {'success': false, 'message': 'Server error. Please try again.', 'data': {}};
+      } else if (e.toString().contains('FormatException')) {
+        return {'success': false, 'message': 'Invalid server response.', 'data': {}};
+      }
       return {'success': false, 'message': 'Network error: $e', 'data': {}};
     }
   }
@@ -80,6 +91,17 @@ class ApiService {
       if (response.statusCode >= 500) return {'success': false, 'message': 'Server error', 'data': {}};
       return jsonDecode(response.body);
     } catch (e) {
+      print('[ApiService] POST error: $e');
+      print('[ApiService] Error type: ${e.runtimeType}');
+      if (e.toString().contains('SocketException')) {
+        return {'success': false, 'message': 'Connection failed. Check internet connection.', 'data': {}};
+      } else if (e.toString().contains('TimeoutException')) {
+        return {'success': false, 'message': 'Request timed out. Server may be slow.', 'data': {}};
+      } else if (e.toString().contains('HttpException')) {
+        return {'success': false, 'message': 'Server error. Please try again.', 'data': {}};
+      } else if (e.toString().contains('FormatException')) {
+        return {'success': false, 'message': 'Invalid server response.', 'data': {}};
+      }
       return {'success': false, 'message': 'Network error: $e', 'data': {}};
     }
   }
