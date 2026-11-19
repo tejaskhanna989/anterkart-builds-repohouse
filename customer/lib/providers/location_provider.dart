@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
-import 'package:geolocator/geolocator.dart';
+import 'package:location/location.dart';
 import '../models/delivery_zone.dart';
 import '../services/api_service.dart';
 
@@ -44,28 +44,27 @@ class LocationProvider extends ChangeNotifier {
   /// Detect current location using GPS and update state.
   Future<bool> detectCurrentLocation() async {
     try {
+      final location = Location();
+      
       // Check and request location permission
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
+      PermissionStatus permission = await location.hasPermission();
+      if (permission == PermissionStatus.denied) {
+        permission = await location.requestPermission();
+        if (permission == PermissionStatus.denied) {
           return false;
         }
       }
-      if (permission == LocationPermission.deniedForever) {
+      if (permission == PermissionStatus.deniedForever) {
         return false;
       }
 
       // Get current position
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 15),
-      );
+      final locationData = await location.getLocation();
 
       // Reverse geocode to get address
       String address = '';
       try {
-        final uri = Uri.parse('https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.latitude}&lon=${position.longitude}&accept-language=en&addressdetails=1');
+        final uri = Uri.parse('https://nominatim.openstreetmap.org/reverse?format=json&lat=${locationData.latitude}&lon=${locationData.longitude}&accept-language=en&addressdetails=1');
         final client = http.Client();
         final res = await client.get(uri, headers: {'User-Agent': 'Otamzo/1.0'}).timeout(const Duration(seconds: 10));
         if (res.statusCode == 200) {
@@ -73,10 +72,10 @@ class LocationProvider extends ChangeNotifier {
           address = j['display_name'] ?? '';
         }
       } catch (_) {
-        address = '${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}';
+        address = '${locationData.latitude?.toStringAsFixed(5) ?? '0'}, ${locationData.longitude?.toStringAsFixed(5) ?? '0'}';
       }
 
-      await setCoordinates(position.latitude, position.longitude, address);
+      await setCoordinates(locationData.latitude ?? 0.0, locationData.longitude ?? 0.0, address);
       return true;
     } catch (e) {
       print('[LocationProvider] Error detecting location: $e');
