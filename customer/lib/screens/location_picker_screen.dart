@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'dart:async';
 import 'dart:convert';
@@ -29,7 +30,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final loc = context.read<LocationProvider>();
       if (loc.hasLocation) {
         final existing = LatLng(loc.lat!, loc.lng!);
@@ -40,7 +41,17 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
         _checkZone(existing);
       }
       loc.loadZones();
-      // Auto-location disabled; user picks manually on map
+      // Auto-detect location if not already set
+      if (!loc.hasLocation) {
+        await loc.detectCurrentLocation();
+        if (mounted && loc.hasLocation) {
+          setState(() {
+            _picked = LatLng(loc.lat!, loc.lng!);
+            _addr = loc.address;
+          });
+          _checkZone(LatLng(loc.lat!, loc.lng!));
+        }
+      }
     });
   }
 
@@ -141,11 +152,33 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
         children: [
           FlutterMap(
             mapController: _mapController,
-            options: MapOptions(initialCenter: _picked ?? LatLng(26.8467, 80.9462), initialZoom: _picked != null ? 15 : 5, onTap: (_, p) { setState(() => _picked = p); _reverse(p); }),
+            options: MapOptions(initialCenter: _picked ?? LatLng(24.853545, 74.620191), initialZoom: _picked != null ? 15 : 5, onTap: (_, p) { setState(() => _picked = p); _reverse(p); }),
             children: [
               TileLayer(urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', userAgentPackageName: 'com.otamzo.store'),
               if (_picked != null) MarkerLayer(markers: [Marker(point: _picked!, width: 40, height: 40, child: const Icon(Icons.location_on, color: Color(0xFF2563EB), size: 40))]),
             ],
+          ),
+          Positioned(
+            bottom: 120,
+            right: 12,
+            child: FloatingActionButton(
+              mini: true,
+              heroTag: 'my_location',
+              onPressed: () async {
+                final loc = context.read<LocationProvider>();
+                final success = await loc.detectCurrentLocation();
+                if (mounted && loc.hasLocation) {
+                  setState(() {
+                    _picked = LatLng(loc.lat!, loc.lng!);
+                    _addr = loc.address;
+                  });
+                  _checkZone(LatLng(loc.lat!, loc.lng!));
+                  _mapController.move(LatLng(loc.lat!, loc.lng!), 15);
+                }
+              },
+              backgroundColor: Colors.white,
+              child: const Icon(Icons.my_location, color: Color(0xFF2563EB)),
+            ),
           ),
           Positioned(
             left: 12,
