@@ -77,7 +77,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   Future<void> _checkZone(LatLng p) async {
     setState(() => _checkingZone = true);
     try {
-      final uri = Uri.parse('https://otamzo.com/api/check-zone.php?lat=${p.latitude}&lng=${p.longitude}&store=anterkart');
+      final uri = Uri.parse('https://otamzo.com/api/check-zone.php?lat=${p.latitude}&lng=${p.longitude}&store=momomia');
       final res = await http.get(uri).timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) {
         final j = jsonDecode(res.body);

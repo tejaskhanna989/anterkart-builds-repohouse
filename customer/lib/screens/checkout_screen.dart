@@ -108,7 +108,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final lat = loc.lat;
       final lng = loc.lng;
       if (lat == null || lng == null) return;
-      final uri = Uri.parse('https://otamzo.com/api/check-zone.php?lat=$lat&lng=$lng&store=anterkart');
+      final uri = Uri.parse('https://otamzo.com/api/check-zone.php?lat=$lat&lng=$lng&store=momomia');
       final res = await http.get(uri).timeout(const Duration(seconds: 8));
       if (res.statusCode != 200 || !mounted) return;
       final j = jsonDecode(res.body);
