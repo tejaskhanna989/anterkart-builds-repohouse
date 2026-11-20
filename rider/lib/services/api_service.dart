@@ -65,7 +65,14 @@ class ApiService {
       String? token;
       if (auth) token = await getToken();
       final response = await http.get(Uri.parse(url), headers: _headers(token: token)).timeout(const Duration(seconds: 15));
-      if (response.statusCode >= 500) return {'success': false, 'message': 'Server error', 'data': {}};
+      if (response.statusCode >= 400) {
+        try {
+          final errorBody = jsonDecode(response.body);
+          return {'success': false, 'message': errorBody['message'] ?? 'Request failed with status \${response.statusCode}', 'data': {}, 'statusCode': response.statusCode};
+        } catch (_) {
+          return {'success': false, 'message': 'Request failed with status \${response.statusCode}', 'data': {}, 'statusCode': response.statusCode};
+        }
+      }
       return jsonDecode(response.body);
     } catch (e) {
       // Log detailed error for debugging
@@ -90,7 +97,14 @@ class ApiService {
       String? token;
       if (auth) token = await getToken();
       final response = await http.post(Uri.parse(url), headers: _headers(token: token, contentType: 'application/x-www-form-urlencoded'), body: _encodeBody(body)).timeout(const Duration(seconds: 15));
-      if (response.statusCode >= 500) return {'success': false, 'message': 'Server error', 'data': {}};
+      if (response.statusCode >= 400) {
+        try {
+          final errorBody = jsonDecode(response.body);
+          return {'success': false, 'message': errorBody['message'] ?? 'Request failed with status ${response.statusCode}', 'data': {}, 'statusCode': response.statusCode};
+        } catch (_) {
+          return {'success': false, 'message': 'Request failed with status ${response.statusCode}', 'data': {}, 'statusCode': response.statusCode};
+        }
+      }
       return jsonDecode(response.body);
     } catch (e) {
       // Log detailed error for debugging
