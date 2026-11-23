@@ -61,9 +61,10 @@ class _HomeScreenState extends State<HomeScreen> {
       OneSignalService.onPushClick = () {
         if (mounted) setState(() => _tab = 1);
       };
-      // Make sure the app may pull itself to the front for a new order even
-      // while the phone is in use ("Display over other apps").
-      AlertService.ensureOverlayPermission();
+      // NOTE: "Display over other apps" is NOT requested automatically.
+      // Android 13+ shows a scary "App was denied access" dialog when an app
+      // opens that restricted setting on its own. Vendors can opt in from the
+      // bell button in the app bar, with a clear explanation first.
     });
   }
 
@@ -168,12 +169,54 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// Opt-in dialog for the "Display over other apps" permission. Android 13+
+  /// shows a scary "App was denied access" system dialog when an app opens
+  /// that restricted setting by itself, so we only open it after the vendor
+  /// explicitly agrees here.
+  void _showAlertSettings() async {
+    final granted = await AlertService.canDrawOverlays();
+    if (granted || !mounted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('New-order alerts are already enabled')),
+        );
+      }
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('New order alerts'),
+        content: const Text(
+          'To ring loudly and bring Otamzo to the front for a new order even '
+          'while the phone is in use, allow "Display over other apps" on the '
+          'next screen.\n\nThis is optional — orders will still arrive via '
+          'notifications if you skip it.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Not now')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Continue')),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await AlertService.requestOverlayPermission();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final vendor = context.watch<AuthProvider>().vendor;
     return Scaffold(
       appBar: AppBar(
         title: Text(vendor?.tenantName.isNotEmpty == true ? vendor!.tenantName : 'My Store'),
+        actions: [
+          IconButton(
+            tooltip: 'New order alerts',
+            icon: const Icon(Icons.notifications_active_outlined),
+            onPressed: _showAlertSettings,
+          ),
+        ],
       ),
       body: IndexedStack(
         index: _tab,

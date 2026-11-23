@@ -34,7 +34,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final phone = authCustomer?.phone ?? '';
     return Scaffold(
       backgroundColor: AppColors.bg,
-      body: ListView(
+      // Keep content out of the status bar / notification bar area.
+      body: SafeArea(
+        top: true,
+        bottom: false,
+        left: false,
+        right: false,
+        child: ListView(
         padding: EdgeInsets.zero,
         children: [
           Container(
@@ -132,6 +138,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

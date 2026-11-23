@@ -3,6 +3,19 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/product_provider.dart';
 import '../models/product.dart';
+import '../services/api_service.dart';
+
+class Category {
+  final int id;
+  final String name;
+
+  Category({required this.id, required this.name});
+
+  factory Category.fromJson(Map<String, dynamic> j) => Category(
+        id: j['id'] is int ? j['id'] : int.tryParse('${j['id']}') ?? 0,
+        name: j['name'] ?? '',
+      );
+}
 
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key});
@@ -11,12 +24,32 @@ class ProductsScreen extends StatefulWidget {
 }
 
 class _ProductsScreenState extends State<ProductsScreen> {
+  List<Category> _categories = [];
+  bool _loadingCategories = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ProductProvider>().loadProducts();
+      _loadCategories();
     });
+  }
+
+  Future<void> _loadCategories() async {
+    setState(() => _loadingCategories = true);
+    try {
+      final res = await ApiService.get('categories/list.php');
+      if (res['success'] == true && res['data'] != null) {
+        final list = res['data']['categories'] ?? res['data'];
+        if (list is List) {
+          _categories = list.map((j) => Category.fromJson(j)).toList();
+        }
+      }
+    } catch (_) {
+      // ignore errors silently
+    }
+    setState(() => _loadingCategories = false);
   }
 
   @override
@@ -85,8 +118,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
     final mrpC = TextEditingController(text: p != null ? '${p.mrp}' : '');
     final stockC = TextEditingController(text: p != null ? '${p.stock}' : '0');
     final descC = TextEditingController(text: p?.description ?? '');
+    int? selectedCategoryId = p?.categoryId;
     bool isVeg = (p?.isVeg ?? 0) == 1;
     bool active = p?.isActive ?? true;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -102,6 +137,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 Text(p == null ? 'Add product' : 'Edit product', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 12),
                 TextField(controller: nameC, decoration: const InputDecoration(labelText: 'Name *', border: OutlineInputBorder())),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<int>(
+                  value: selectedCategoryId,
+                  decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
+                  items: _categories.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name))).toList(),
+                  onChanged: (v) => setSheet(() => selectedCategoryId = v),
+                ),
                 const SizedBox(height: 10),
                 Row(children: [
                   Expanded(child: TextField(controller: priceC, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Price *', border: OutlineInputBorder()))),
@@ -131,8 +173,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         name: nameC.text.trim(),
                         price: price,
                         mrp: double.tryParse(mrpC.text),
-                        stock: int.tryParse(stockC.text) ?? 0,
+                        categoryId: selectedCategoryId ?? p?.categoryId,
                         description: descC.text.trim(),
+                        stock: int.tryParse(stockC.text) ?? 0,
                         status: active ? 'active' : 'inactive',
                         isVeg: isVeg ? 1 : 0,
                       );
