@@ -5,15 +5,16 @@ import 'providers/auth_provider.dart';
 import 'providers/order_provider.dart';
 import 'providers/earnings_provider.dart';
 import 'providers/location_provider.dart';
-import 'services/push_service.dart';
+import 'services/onesignal_service.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 
-final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
-
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await PushService.init(appNavigatorKey);
+  // Initializes OneSignal with the app id from ApiConfig. Push permission is
+  // NOT requested here — the native verification dialog requests it once the
+  // device registers (see OneSignalManager in android/).
+  OneSignalService.initialize();
   
   // Configure system UI overlays - prevent content under status bar
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -44,7 +45,6 @@ class OtamzoRiderApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Otamzo Rider',
         debugShowCheckedModeBanner: false,
-        navigatorKey: appNavigatorKey,
         theme: buildAppTheme(),
         home: const SplashScreen(),
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'services/onesignal_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/product_provider.dart';
 import 'providers/cart_provider.dart';
@@ -8,9 +9,8 @@ import 'providers/order_provider.dart';
 import 'providers/address_provider.dart';
 import 'providers/banner_provider.dart';
 import 'providers/location_provider.dart';
-import 'providers/store_provider.dart';
-import 'providers/theme_provider.dart';
-import 'services/push_service.dart';
+import 'providers/settings_provider.dart';
+import 'providers/notification_provider.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
@@ -19,12 +19,14 @@ import 'screens/home_screen.dart';
 import 'screens/cart_screen.dart';
 import 'screens/orders_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/notifications_screen.dart';
 
-final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
-
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await PushService.init(appNavigatorKey);
+  // Initializes OneSignal with the app id from ApiConfig. Push permission is
+  // NOT requested here — the native verification dialog requests it once the
+  // device registers (see OneSignalManager in android/).
+  OneSignalService.initialize();
   
   // Configure system UI overlays - prevent content under status bar
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -54,27 +56,23 @@ class OtamzoCustomerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AddressProvider()),
         ChangeNotifierProvider(create: (_) => BannerProvider()),
         ChangeNotifierProvider(create: (_) => LocationProvider()),
-        ChangeNotifierProvider(create: (_) => StoreProvider()..init()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()..init()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
-      child: Consumer<ThemeProvider>(
-        builder: (_, theme, __) => MaterialApp(
-          title: 'Otamzo',
-          debugShowCheckedModeBanner: false,
-          navigatorKey: appNavigatorKey,
-          theme: buildAppTheme(),
-          darkTheme: buildDarkAppTheme(),
-          themeMode: theme.themeMode,
-          home: const SplashScreen(),
-          routes: {
-            '/login': (_) => const LoginScreen(),
-            '/register': (_) => const RegisterScreen(),
-            '/home': (_) => const HomeScreen(),
-            '/cart': (_) => const CartScreen(),
-            '/orders': (_) => const OrdersScreen(),
-            '/profile': (_) => const ProfileScreen(),
-          },
-        ),
+      child: MaterialApp(
+        title: 'Otamzo',
+        debugShowCheckedModeBanner: false,
+        theme: buildAppTheme(),
+        home: const SplashScreen(),
+        routes: {
+          '/login': (_) => const LoginScreen(),
+          '/register': (_) => const RegisterScreen(),
+          '/home': (_) => const HomeScreen(),
+          '/cart': (_) => const CartScreen(),
+          '/orders': (_) => const OrdersScreen(),
+          '/profile': (_) => const ProfileScreen(),
+          '/notifications': (_) => const NotificationsScreen(),
+        },
       ),
     );
   }
