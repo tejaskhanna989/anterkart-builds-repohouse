@@ -4,10 +4,12 @@ import '../services/api_service.dart';
 
 class ProductProvider extends ChangeNotifier {
   List<Product> _products = [];
+  List<Product> _filteredProducts = [];
   bool _isLoading = false;
   String? _error;
 
-  List<Product> get products => _products;
+  List<Product> get products => _filteredProducts;
+  List<Product> get allProducts => _products;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -18,10 +20,20 @@ class ProductProvider extends ChangeNotifier {
     final res = await ApiService.get('vendor/products/list.php', auth: true);
     if (res['success'] == true) {
       _products = (res['data']['products'] as List? ?? []).map((j) => Product.fromJson(j)).toList();
+      _filteredProducts = List.from(_products);
     } else {
       _error = res['message'];
     }
     _isLoading = false;
+    notifyListeners();
+  }
+
+  void filterByCategory(int? categoryId) {
+    if (categoryId == null) {
+      _filteredProducts = List.from(_products);
+    } else {
+      _filteredProducts = _products.where((p) => p.categoryId == categoryId).toList();
+    }
     notifyListeners();
   }
 
