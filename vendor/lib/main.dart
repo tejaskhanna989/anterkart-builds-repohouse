@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/order_provider.dart';
@@ -14,6 +15,18 @@ void main() {
   // NOT requested here — the native verification dialog requests it once the
   // device registers (see OneSignalManager in android/).
   OneSignalService.initialize();
+  
+  // Configure system UI overlays - prevent content under status bar
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.dark,
+    statusBarBrightness: Brightness.light,
+    systemNavigationBarColor: Colors.white,
+    systemNavigationBarIconBrightness: Brightness.dark,
+  ));
+  // Ensure edge-to-edge layout with safe areas handled by Scaffold/SafeArea
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  
   runApp(const OtamzoVendorApp());
 }
 
