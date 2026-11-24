@@ -58,7 +58,7 @@ jobs:
       # build type picks them up (see android/app/build.gradle.kts) and signs
       # the APKs with v1 + v2 + v3 while it packages them.
       - name: Prepare release signing material
-        if: vars.SKIP_SIGNING != 'true'
+        if: inputs.skip_signing != 'true'
         env:
           CUSTOMER_KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64_CUSTOMER }}
           CUSTOMER_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD_CUSTOMER }}
@@ -89,20 +89,6 @@ jobs:
           prepare_keys customer "$CUSTOMER_KEYSTORE_BASE64" "$CUSTOMER_KEYSTORE_PASSWORD" "$CUSTOMER_KEY_PASSWORD" "$CUSTOMER_KEY_ALIAS"
           prepare_keys vendor   "$VENDOR_KEYSTORE_BASE64"   "$VENDOR_KEYSTORE_PASSWORD"   "$VENDOR_KEY_PASSWORD"   "$VENDOR_KEY_ALIAS"
           prepare_keys rider    "$RIDER_KEYSTORE_BASE64"    "$RIDER_KEYSTORE_PASSWORD"    "$RIDER_KEY_PASSWORD"    "$RIDER_KEY_ALIAS"
-      
-      - name: Prepare release signing material (skip if secrets missing)
-        if: vars.SKIP_SIGNING != 'true'
-        run: |
-          echo "Checking signing secrets availability..."
-          has_customer=0
-          has_vendor=0
-          has_rider=0
-          [ -n "${{ secrets.KEYSTORE_BASE64_CUSTOMER }}" ] && has_customer=1
-          [ -n "${{ secrets.KEYSTORE_BASE64_VENDOR }}" ] && has_vendor=1
-          [ -n "${{ secrets.KEYSTORE_BASE64_RIDER }}" ] && has_rider=1
-          if [ $has_customer -eq 0 ] || [ $has_vendor -eq 0 ] || [ $has_rider -eq 0 ]; then
-            echo "::warning::Some signing secrets are missing - APK will be unsigned"
-          fi
 
       - name: Ensure Gradle wrapper uses Gradle 8.14 (compatible with AGP 8.1.4)
         run: |
@@ -175,7 +161,7 @@ jobs:
       # signed nothing because the glob did not match Flutter's split APK
       # names (app-arm64-v8a-release.apk, not app-release-arm64-v8a.apk).
       - name: Verify APK signatures (Android 11 / API 30)
-        if: vars.SKIP_SIGNING != 'true'
+        if: inputs.skip_signing != 'true'
         run: |
           set -euo pipefail
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
