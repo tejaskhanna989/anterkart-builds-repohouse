@@ -175,6 +175,10 @@ jobs:
       # version code (armv7 = base + 1000, arm64 = base + 2000, x86_64 =
       # base + 4000), which makes the three files mutually incompatible: the
       # second one installed would be rejected as a downgrade.
+      #
+      # A universal build is added on top. It contains every ABI and therefore
+      # installs on any device, which removes the "wrong architecture" cause
+      # of the package parsing error on the device.
       - name: Build release APKs
         run: |
           set -euo pipefail
@@ -192,10 +196,24 @@ jobs:
             cp "$built" "dist/$app/app-$abi-release.apk"
             echo "::endgroup::"
           }
+          build_universal() {
+            local app="$1"
+            echo "::group::build $app (universal)"
+            (cd "$app" && flutter build apk --release)
+            local built="$app/build/app/outputs/flutter-apk/app-release.apk"
+            if [ ! -f "$built" ]; then
+              echo "::error::$app (universal) produced no APK"
+              exit 1
+            fi
+            mkdir -p "dist/$app"
+            cp "$built" "dist/$app/app-universal-release.apk"
+            echo "::endgroup::"
+          }
           for app in customer vendor rider; do
             build_app "$app" android-arm64 arm64-v8a
             build_app "$app" android-arm armeabi-v7a
             build_app "$app" android-x64 x86_64
+            build_universal "$app"
           done
 
       - name: Verify APK signatures, alignment and manifests
@@ -231,13 +249,12 @@ jobs:
                 echo "::error::$apk is signed with $digest, expected $expected"
                 exit 1
               fi
-              python3 tools/verify_apk.py "$apk" \
+              facts=$(python3 tools/verify_apk.py "$apk" \
                 --package "${PACKAGE[$app]}" \
                 --label "${LABEL[$app]}" \
-                --min-version-code "$MIN_VERSION_CODE"
-              vc=$(python3 tools/verify_apk.py "$apk" --package "${PACKAGE[$app]}" \
-                    --label "${LABEL[$app]}" --min-version-code "$MIN_VERSION_CODE" \
-                    | sed -n 's/.*versionCode=\([0-9]*\).*/\1/p')
+                --min-version-code "$MIN_VERSION_CODE")
+              echo "$facts"
+              vc=$(echo "$facts" | sed -n 's/.*versionCode=\([0-9]*\).*/\1/p')
               versions="$versions $vc"
             done
             unique=$(echo "$versions" | tr ' ' '\n' | grep -v '^$' | sort -u | wc -l)

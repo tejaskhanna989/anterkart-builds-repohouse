@@ -60,7 +60,7 @@ class OtamzoCustomerApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
       child: MaterialApp(
-        title: 'Otamzo',
+        title: 'Otamzo Store',
         debugShowCheckedModeBanner: false,
         theme: buildAppTheme(),
         home: const SplashScreen(),

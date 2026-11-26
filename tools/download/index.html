@@ -19,6 +19,7 @@
         .subtitle { text-align: center; color: #666; margin-bottom: 24px; }
         .notice { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; border-radius: 10px; padding: 14px 16px; margin-bottom: 28px; font-size: 0.92rem; line-height: 1.5; }
         .notice strong { display: block; margin-bottom: 4px; }
+        .notice code { background: #ffedd5; border-radius: 4px; padding: 1px 4px; font-size: 0.86rem; }
         .app-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
         .app-card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: transform 0.2s; }
         .app-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
@@ -28,6 +29,7 @@
         .apk-list { display: flex; flex-direction: column; gap: 8px; }
         .apk-link { display: flex; align-items: center; padding: 12px 16px; background: #f8f9fa; border-radius: 8px; text-decoration: none; color: #333; transition: background 0.2s; }
         .apk-link:hover { background: #e9ecef; }
+        .apk-link.primary { background: #eef2ff; border: 1px solid #c7d2fe; }
         .apk-arch { font-weight: 600; color: #667eea; margin-right: 12px; min-width: 118px; }
         .apk-size { color: #999; font-size: 0.85rem; }
         .recommended { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; font-size: 0.72rem; font-weight: 700; border-radius: 999px; padding: 2px 8px; margin-left: auto; }
@@ -46,8 +48,9 @@
             <strong>Install trouble?</strong>
             Android reports &ldquo;There was an error while parsing the package&rdquo; when the file is
             truncated, when the wrong architecture was downloaded, or when an older copy of the app is
-            already installed. Use <strong>arm64-v8a</strong> on any phone from 2018 onwards, let the
-            download finish completely, and uninstall any previous copy of the app first.
+            already installed. Use the <strong>universal</strong> file below &ndash; it contains every
+            architecture and installs on any phone. Let the download finish completely, and uninstall
+            any previous copy of the app first.
         </div>
 
         <div class="app-grid">
@@ -56,7 +59,8 @@
                 <h2 class="app-name">Otamzo Store</h2>
                 <p class="app-desc">For customers to browse and order food</p>
                 <div class="apk-list">
-                    <a href="customer/app-arm64-v8a-release.apk" class="apk-link"><span class="apk-arch">arm64-v8a</span><span class="apk-size">recommended</span><span class="recommended">most phones</span></a>
+                    <a href="customer/app-universal-release.apk" class="apk-link primary"><span class="apk-arch">universal</span><span class="apk-size">works on every phone</span><span class="recommended">recommended</span></a>
+                    <a href="customer/app-arm64-v8a-release.apk" class="apk-link"><span class="apk-arch">arm64-v8a</span><span class="apk-size">most phones, smaller file</span></a>
                     <a href="customer/app-armeabi-v7a-release.apk" class="apk-link"><span class="apk-arch">armeabi-v7a</span><span class="apk-size">older 32-bit phones</span></a>
                     <a href="customer/app-x86_64-release.apk" class="apk-link"><span class="apk-arch">x86_64</span><span class="apk-size">emulators only</span></a>
                 </div>
@@ -68,7 +72,8 @@
                 <h2 class="app-name">Otamzo Vendor</h2>
                 <p class="app-desc">For restaurant owners to manage orders</p>
                 <div class="apk-list">
-                    <a href="vendor/app-arm64-v8a-release.apk" class="apk-link"><span class="apk-arch">arm64-v8a</span><span class="apk-size">recommended</span><span class="recommended">most phones</span></a>
+                    <a href="vendor/app-universal-release.apk" class="apk-link primary"><span class="apk-arch">universal</span><span class="apk-size">works on every phone</span><span class="recommended">recommended</span></a>
+                    <a href="vendor/app-arm64-v8a-release.apk" class="apk-link"><span class="apk-arch">arm64-v8a</span><span class="apk-size">most phones, smaller file</span></a>
                     <a href="vendor/app-armeabi-v7a-release.apk" class="apk-link"><span class="apk-arch">armeabi-v7a</span><span class="apk-size">older 32-bit phones</span></a>
                     <a href="vendor/app-x86_64-release.apk" class="apk-link"><span class="apk-arch">x86_64</span><span class="apk-size">emulators only</span></a>
                 </div>
@@ -80,7 +85,8 @@
                 <h2 class="app-name">Otamzo Rider</h2>
                 <p class="app-desc">For delivery riders</p>
                 <div class="apk-list">
-                    <a href="rider/app-arm64-v8a-release.apk" class="apk-link"><span class="apk-arch">arm64-v8a</span><span class="apk-size">recommended</span><span class="recommended">most phones</span></a>
+                    <a href="rider/app-universal-release.apk" class="apk-link primary"><span class="apk-arch">universal</span><span class="apk-size">works on every phone</span><span class="recommended">recommended</span></a>
+                    <a href="rider/app-arm64-v8a-release.apk" class="apk-link"><span class="apk-arch">arm64-v8a</span><span class="apk-size">most phones, smaller file</span></a>
                     <a href="rider/app-armeabi-v7a-release.apk" class="apk-link"><span class="apk-arch">armeabi-v7a</span><span class="apk-size">older 32-bit phones</span></a>
                     <a href="rider/app-x86_64-release.apk" class="apk-link"><span class="apk-arch">x86_64</span><span class="apk-size">emulators only</span></a>
                 </div>

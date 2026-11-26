@@ -12,7 +12,11 @@ SSH_HOST="${OTAMZO_SSH_HOST:-91.108.107.50}"
 SSH_PORT="${OTAMZO_SSH_PORT:-65002}"
 SSH_USER="${OTAMZO_SSH_USER:-u881842192}"
 SSH_PASSWORD="${OTAMZO_SSH_PASSWORD:?OTAMZO_SSH_PASSWORD is required}"
-STAGE="/tmp/otamzo-apk-release"
+
+# Every workflow run stages in its own directory, so two runs can never
+# overwrite each other's upload halfway through.
+STAGE="/tmp/otamzo-apk-release/${GITHUB_RUN_ID:-$$}"
+LOCK="/tmp/otamzo-apk-publish.lock"
 
 APPS="${OTAMZO_APPS:-customer vendor rider}"
 
@@ -29,6 +33,22 @@ fi
 remote() {
   sshpass -e ssh "${ssh_opts[@]}" "$SSH_USER@$SSH_HOST" "$@"
 }
+
+cleanup() {
+  remote "rm -rf '$STAGE'" || true
+  remote "rm -f '$LOCK'" || true
+}
+trap cleanup EXIT
+
+# Only one release may publish at a time. The lock is taken on the server, so
+# it also protects against a run in a different workspace.
+echo "=== acquiring the publish lock"
+if ! remote "if mkdir '$LOCK' 2>/dev/null; then echo acquired; else echo 'another release is publishing' >&2; exit 1; fi"; then
+  echo "::error::Another release is publishing right now. Nothing was changed."
+  exit 1
+fi
+
+remote "rm -rf '$STAGE' && mkdir -p '$STAGE'"
 
 for app in $APPS; do
   src="dist/$app"
