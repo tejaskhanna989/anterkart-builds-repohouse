@@ -49,18 +49,34 @@ jobs:
       - name: Install Android command-line tools (apksigner, zipalign)
         run: |
           set -euo pipefail
-          mkdir -p "$HOME/android-cmdline-tools"
-          cd "$HOME/android-cmdline-tools"
+          # ANDROID_HOME is exported through $GITHUB_ENV and therefore only
+          # reaches the following steps. Every path inside this step has to be
+          # spelled out, otherwise sdkmanager would install into a different
+          # SDK than the one the build uses.
+          SDK_ROOT="$HOME/android-cmdline-tools"
+          mkdir -p "$SDK_ROOT"
+          cd "$SDK_ROOT"
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
           unzip -q cmdline-tools.zip
           mkdir -p cmdline-tools/latest
           mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
-          echo "ANDROID_HOME=$HOME/android-cmdline-tools" >> $GITHUB_ENV
-          echo "$HOME/android-cmdline-tools/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;34.0.0" > /dev/null 2>&1 || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" > /dev/null 2>&1 || true
-          echo "Android tools installed"
+          echo "ANDROID_HOME=$SDK_ROOT" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> $GITHUB_ENV
+          echo "$SDK_ROOT/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
+          "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" > /dev/null 2>&1 || true
+          "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "build-tools;34.0.0" > /dev/null 2>&1 || true
+          "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" > /dev/null 2>&1 || true
+          # The build fails with a misleading "No Android SDK found" when the
+          # SDK directory is incomplete, so it is verified here.
+          for required in platform-tools build-tools platforms/android-36 cmdline-tools/latest/bin/sdkmanager; do
+            if [ ! -e "$SDK_ROOT/$required" ]; then
+              echo "::error::Android SDK component missing: $required"
+              exit 1
+            fi
+          done
+          echo "ANDROID_HOME=$SDK_ROOT"
+          ls "$SDK_ROOT"
 
       # Signing is mandatory. An unsigned APK cannot be installed on a device,
       # so a build without the keystore must fail instead of publishing.
