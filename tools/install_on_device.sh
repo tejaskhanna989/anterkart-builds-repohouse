@@ -48,7 +48,12 @@ for app in "${APPS[@]}"; do
   echo
   echo "=== $app ==="
   gh run download "$RUN" --repo "$REPO" -n "$app-apk" -D "$DEST/$app"
-  apk=$(find "$DEST/$app" -name 'app-arm64-v8a-release.apk' | head -1)
+  # The universal APK contains every architecture, so it installs on any
+  # device. The per architecture files are smaller and are used as a fallback.
+  apk=$(find "$DEST/$app" -name 'app-universal-release.apk' | head -1)
+  if [ -z "$apk" ]; then
+    apk=$(find "$DEST/$app" -name 'app-arm64-v8a-release.apk' | head -1)
+  fi
   if [ -z "$apk" ]; then
     apk=$(find "$DEST/$app" -name '*-release.apk' | head -1)
   fi
@@ -60,16 +65,21 @@ for app in "${APPS[@]}"; do
 
   # The phone must accept the upgrade: the signature has to match the one
   # that is already installed, otherwise the install fails.
-  adb install -r "$apk" || {
-    echo "  retrying after uninstall (signature changed)" >&2
+  if ! adb install -r "$apk"; then
+    echo "  the install failed, retrying after an uninstall" >&2
     case "$app" in
       customer) pkg=com.otamzo.store ;;
       vendor)   pkg=com.otamzo.vendor ;;
       rider)    pkg=com.otamzo.rider ;;
     esac
     adb uninstall "$pkg" || true
-    adb install "$apk"
-  }
+    adb install "$apk" || {
+      echo "  install failed. Check the device architecture with" >&2
+      echo "    adb shell getprop ro.product.cpu.abi" >&2
+      echo "  and install the matching file from /download/<app>/." >&2
+      exit 1
+    }
+  fi
 done
 
 echo
