@@ -1,11 +1,24 @@
-name: Build APKs
+name: Build and Publish APKs
 
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'customer/**'
+      - 'vendor/**'
+      - 'rider/**'
+      - 'tools/**'
+      - '.github/workflows/build-apks.yml'
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: '3.24.3'
+  # Every published variant of an app carries the same version code, so a user
+  # can switch between the arm64 and armv7 build without Android treating the
+  # second install as a downgrade.
+  MIN_VERSION_CODE: '4002'
 
 jobs:
   build:
@@ -19,7 +32,8 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.3'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -32,24 +46,25 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Android command-line tools (for apksigner, zipalign)
+      - name: Install Android command-line tools (apksigner, zipalign)
         run: |
           set -euo pipefail
-          mkdir -p $HOME/android-cmdline-tools
-          cd $HOME/android-cmdline-tools
+          mkdir -p "$HOME/android-cmdline-tools"
+          cd "$HOME/android-cmdline-tools"
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
           unzip -q cmdline-tools.zip
           mkdir -p cmdline-tools/latest
           mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
           echo "ANDROID_HOME=$HOME/android-cmdline-tools" >> $GITHUB_ENV
           echo "$HOME/android-cmdline-tools/cmdline-tools/latest/bin" >> $GITHUB_PATH
-          yes | $HOME/android-cmdline-tools/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
-          $HOME/android-cmdline-tools/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" > /dev/null 2>&1 || true
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null 2>&1 || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;34.0.0" > /dev/null 2>&1 || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" > /dev/null 2>&1 || true
           echo "Android tools installed"
 
-      # Skip signing if secrets are not available
-      - name: Prepare release signing material (optional)
-        continue-on-error: true
+      # Signing is mandatory. An unsigned APK cannot be installed on a device,
+      # so a build without the keystore must fail instead of publishing.
+      - name: Prepare release signing material
         env:
           CUSTOMER_KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64_CUSTOMER }}
           CUSTOMER_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD_CUSTOMER }}
@@ -65,24 +80,11 @@ jobs:
           RIDER_KEY_ALIAS: ${{ secrets.KEY_ALIAS_RIDER }}
         run: |
           set -euo pipefail
-          echo "Checking signing secrets availability..."
-          has_customer=0
-          has_vendor=0
-          has_rider=0
-          [ -n "${{ secrets.KEYSTORE_BASE64_CUSTOMER }}" ] && has_customer=1
-          [ -n "${{ secrets.KEYSTORE_BASE64_VENDOR }}" ] && has_vendor=1
-          [ -n "${{ secrets.KEYSTORE_BASE64_RIDER }}" ] && has_rider=1
-          
-          if [ $has_customer -eq 0 ] || [ $has_vendor -eq 0 ] || [ $has_rider -eq 0 ]; then
-            echo "::warning::Signing secrets not available - building unsigned APKs"
-            exit 0
-          fi
-
           prepare_keys() {
             local app="$1" base64="$2" store_pw="$3" key_pw="$4" alias="$5"
             if [ -z "$base64" ] || [ -z "$store_pw" ] || [ -z "$key_pw" ] || [ -z "$alias" ]; then
-              echo "::warning::Missing signing secrets for $app, APK will be unsigned"
-              return 0
+              echo "::error::Signing material for $app is missing. An unsigned APK cannot be published."
+              exit 1
             fi
             echo "$base64" | base64 --decode > "$app/android/app/upload-keystore.jks"
             printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=upload-keystore.jks\n' \
@@ -91,36 +93,29 @@ jobs:
             echo "Signing material prepared for $app"
           }
           prepare_keys customer "$CUSTOMER_KEYSTORE_BASE64" "$CUSTOMER_KEYSTORE_PASSWORD" "$CUSTOMER_KEY_PASSWORD" "$CUSTOMER_KEY_ALIAS"
-          prepare_keys vendor   "$VENDOR_KEYSTORE_BASE64"   "$VENDOR_KEYSTORE_PASSWORD"   "$VENDOR_KEY_PASSWORD"   "$VENDOR_KEY_ALIAS"
-          prepare_keys rider    "$RIDER_KEYSTORE_BASE64"    "$RIDER_KEYSTORE_PASSWORD"    "$RIDER_KEY_PASSWORD"    "$RIDER_KEY_ALIAS"
+          prepare_keys vendor "$VENDOR_KEYSTORE_BASE64" "$VENDOR_KEYSTORE_PASSWORD" "$VENDOR_KEY_PASSWORD" "$VENDOR_KEY_ALIAS"
+          prepare_keys rider "$RIDER_KEYSTORE_BASE64" "$RIDER_KEYSTORE_PASSWORD" "$RIDER_KEY_PASSWORD" "$RIDER_KEY_ALIAS"
 
       - name: Ensure Gradle wrapper uses Gradle 8.14 (compatible with AGP 8.1.4)
         run: |
+          set -euo pipefail
           for proj in customer vendor rider; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
-              echo "Setting $wrapper_props to Gradle 8.14"
               sed -i "s|^distributionUrl=.*$|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14-all.zip|" "$wrapper_props"
             fi
           done
 
-      - name: Get Flutter dependencies (Customer)
-        working-directory: customer
+      - name: Get Flutter dependencies
         run: |
-          flutter pub get
-
-      - name: Get Flutter dependencies (Vendor)
-        working-directory: vendor
-        run: |
-          flutter pub get
-
-      - name: Get Flutter dependencies (Rider)
-        working-directory: rider
-        run: |
-          flutter pub get
+          set -euo pipefail
+          for proj in customer vendor rider; do
+            (cd "$proj" && flutter pub get)
+          done
 
       - name: Ensure Gradle wrapper stays at 8.14 after pub get
         run: |
+          set -euo pipefail
           for proj in customer vendor rider; do
             wrapper_props="$proj/android/gradle/wrapper/gradle-wrapper.properties"
             if [ -f "$wrapper_props" ]; then
@@ -128,99 +123,152 @@ jobs:
             fi
           done
 
-      # The tests pin down the live API payload shapes and the offer
-      # distance logic, so a broken build never reaches a phone.
-      - name: Run tests (Customer)
-        working-directory: customer
-        continue-on-error: true
+      - name: Run tests
         run: |
-          flutter test
+          set -euo pipefail
+          failed=0
+          for proj in customer vendor rider; do
+            echo "::group::tests $proj"
+            if ! (cd "$proj" && flutter test); then
+              echo "::error::flutter test failed for $proj"
+              failed=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $failed
 
-      - name: Run tests (Vendor)
-        working-directory: vendor
-        continue-on-error: true
+      # Each ABI is built on its own with --target-platform instead of
+      # --split-per-abi. A split build adds an ABI specific offset to the
+      # version code (armv7 = base + 1000, arm64 = base + 2000, x86_64 =
+      # base + 4000), which makes the three files mutually incompatible: the
+      # second one installed would be rejected as a downgrade.
+      - name: Build release APKs
         run: |
-          flutter test
+          set -euo pipefail
+          build_app() {
+            local app="$1"
+            local platform="$2" abi="$3"
+            echo "::group::build $app ($abi)"
+            (cd "$app" && flutter build apk --release --target-platform="$platform")
+            local built="$app/build/app/outputs/flutter-apk/app-release.apk"
+            if [ ! -f "$built" ]; then
+              echo "::error::$app ($abi) produced no APK"
+              exit 1
+            fi
+            mkdir -p "dist/$app"
+            cp "$built" "dist/$app/app-$abi-release.apk"
+            echo "::endgroup::"
+          }
+          for app in customer vendor rider; do
+            build_app "$app" android-arm64 arm64-v8a
+            build_app "$app" android-arm armeabi-v7a
+            build_app "$app" android-x64 x86_64
+          done
 
-      - name: Run tests (Rider)
-        working-directory: rider
-        continue-on-error: true
-        run: |
-          flutter test
-
-      - name: Build Customer APK
-        working-directory: customer
-        continue-on-error: true
-        run: |
-          flutter build apk --release --split-per-abi
-
-      - name: Build Vendor APK
-        working-directory: vendor
-        continue-on-error: true
-        run: |
-          flutter build apk --release --split-per-abi
-
-      - name: Build Rider APK
-        working-directory: rider
-        continue-on-error: true
-        run: |
-          flutter build apk --release --split-per-abi
-
-      # Verify APK signatures (optional - skip if signing was skipped)
-      - name: Verify APK signatures (Android 11 / API 30)
-        continue-on-error: true
+      - name: Verify APK signatures, alignment and manifests
+        env:
+          CUSTOMER_CERT_SHA256: '63:9C:C1:34:EB:EF:92:23:DF:63:FF:32:C4:7E:95:AA:A8:FF:C9:41:A6:7D:9D:2E:15:CB:5B:A3:5B:E9:EA:CF'
+          VENDOR_CERT_SHA256: '7F:0E:1B:24:AB:BE:7D:C0:67:29:82:B7:29:BA:63:74:A5:0C:EC:99:75:7C:9C:EE:A9:05:51:78:F7:7A:A8:DA'
+          RIDER_CERT_SHA256: 'CD:E9:E5:E8:A3:0C:33:98:EE:10:25:6C:F6:66:94:92:C2:2D:77:2B:FC:E1:E4:6F:2C:7D:9F:99:39:F4:DD:8B'
         run: |
           set -euo pipefail
           APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
           ZIPALIGN=$(find "$ANDROID_HOME/build-tools" -name zipalign -type f | sort -V | tail -1)
-          echo "apksigner: $APKSIGNER"
-          shopt -s nullglob
-          apks=(customer/build/app/outputs/flutter-apk/app-*-release.apk
-                vendor/build/app/outputs/flutter-apk/app-*-release.apk
-                rider/build/app/outputs/flutter-apk/app-*-release.apk)
-          if [ ${#apks[@]} -eq 0 ]; then
-            echo "::error::No release APKs were produced"
-            exit 1
-          fi
-          missing_sig=0
-          for apk in "${apks[@]}"; do
-            echo "::group::$(basename "$apk")"
-            "$ZIPALIGN" -c 4 "$apk"
-            report=$("$APKSIGNER" verify --min-sdk-version 24 --print-certs -v "$apk" 2>&1)
-            echo "$report"
-            if ! echo "$report" | grep -q "Verified using v2 scheme"; then
-              echo "::warning::APK Signature Scheme v2 is missing in $apk"
-              missing_sig=1
+          declare -A PACKAGE=( [customer]=com.otamzo.store [vendor]=com.otamzo.vendor [rider]=com.otamzo.rider )
+          declare -A LABEL=( [customer]="Otamzo Store" [vendor]="Otamzo Vendor" [rider]="Otamzo Rider" )
+          declare -A CERT=( [customer]="$CUSTOMER_CERT_SHA256" [vendor]="$VENDOR_CERT_SHA256" [rider]="$RIDER_CERT_SHA256" )
+
+          for app in customer vendor rider; do
+            echo "::group::verify $app"
+            versions=""
+            for apk in dist/$app/*.apk; do
+              echo "-- $apk"
+              "$ZIPALIGN" -c 4 "$apk"
+              report=$("$APKSIGNER" verify --min-sdk-version 21 --print-certs -v "$apk" 2>&1) || {
+                echo "$report"
+                echo "::error::apksigner rejected $apk"
+                exit 1
+              }
+              echo "$report" | grep -E "Verified using v[123] scheme|Signer #1 certificate SHA-256 digest"
+              echo "$report" | grep -q "Verified using v2 scheme" || { echo "::error::$apk has no v2 signature"; exit 1; }
+              echo "$report" | grep -q "Verified using v3 scheme" || { echo "::error::$apk has no v3 signature"; exit 1; }
+              digest=$(echo "$report" | grep "Signer #1 certificate SHA-256 digest" | head -1 | sed 's/.*: //' | tr -d '\r')
+              if [ "$digest" != "${CERT[$app]}" ]; then
+                echo "::error::$apk is signed with $digest, expected ${CERT[$app]}"
+                exit 1
+              fi
+              python3 tools/verify_apk.py "$apk" \
+                --package "${PACKAGE[$app]}" \
+                --label "${LABEL[$app]}" \
+                --min-version-code "$MIN_VERSION_CODE"
+              vc=$(python3 tools/verify_apk.py "$apk" --package "${PACKAGE[$app]}" \
+                    --label "${LABEL[$app]}" --min-version-code "$MIN_VERSION_CODE" \
+                    | sed -n 's/.*versionCode=\([0-9]*\).*/\1/p')
+              versions="$versions $vc"
+            done
+            unique=$(echo "$versions" | tr ' ' '\n' | grep -v '^$' | sort -u | wc -l)
+            if [ "$unique" -ne 1 ]; then
+              echo "::error::$app has $unique different version codes ($versions). All variants must share one version code."
+              exit 1
             fi
-            if ! echo "$report" | grep -q "Verified using v3 scheme"; then
-              echo "::warning::APK Signature Scheme v3 is missing in $apk"
-              missing_sig=1
-            fi
+            echo "all variants of $app share version code$(echo "$versions" | tr -d ' ')"
             echo "::endgroup::"
           done
-          if [ $missing_sig -eq 1 ]; then
-            echo "::warning::Some APKs may not be properly signed for Android 11. Proceeding anyway..."
-          else
-            echo "All release APKs are properly signed for Android 11."
-          fi
+
+      - name: Generate checksum sidecars
+        run: |
+          set -euo pipefail
+          for app in customer vendor rider; do
+            cd "dist/$app"
+            sha1sum app-*-release.apk > checksums.sha1
+            cp checksums.sha1 checksums.txt
+            while read -r sum name; do
+              printf '%s  %s\n' "$sum" "$name" > "$name.sha1"
+            done < checksums.sha1
+          done
+          cat dist/*/checksums.sha1
+
+      - name: Publish the download page
+        env:
+          OTAMZO_SSH_PASSWORD: ${{ secrets.OTAMZO_SSH_PASSWORD }}
+        run: |
+          set -euo pipefail
+          export SSHPASS="$OTAMZO_SSH_PASSWORD"
+          SSH_HOST=91.108.107.50
+          SSH_PORT=65002
+          SSH_USER=u881842192
+          WEBROOT=/home/u881842192/domains/otamzo.com/public_html
+          sshpass -e scp -P "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
+            tools/download/index.html "$SSH_USER@$SSH_HOST:/tmp/otamzo-download-index.html"
+          sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
+            "$SSH_USER@$SSH_HOST" "install -m 644 /tmp/otamzo-download-index.html '$WEBROOT/download/index.html' && rm -f /tmp/otamzo-download-index.html"
+          echo "download page published"
+
+      - name: Publish APKs to production
+        env:
+          OTAMZO_SSH_PASSWORD: ${{ secrets.OTAMZO_SSH_PASSWORD }}
+        run: |
+          set -euo pipefail
+          chmod +x tools/publish_apks.sh
+          ./tools/publish_apks.sh
 
       - name: Upload Customer APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: customer-apk
-          path: customer/build/app/outputs/flutter-apk/
-          retention-days: 7
+          path: dist/customer/
+          retention-days: 30
 
       - name: Upload Vendor APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: vendor-apk
-          path: vendor/build/app/outputs/flutter-apk/
-          retention-days: 7
+          path: dist/vendor/
+          retention-days: 30
 
       - name: Upload Rider APK artifacts
         uses: actions/upload-artifact@v4
         with:
           name: rider-apk
-          path: rider/build/app/outputs/flutter-apk/
-          retention-days: 7
+          path: dist/rider/
+          retention-days: 30

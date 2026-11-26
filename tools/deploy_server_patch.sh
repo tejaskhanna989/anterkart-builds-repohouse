@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Upload the additive server patch to the live site.
+# Upload selected canonical server files to the live site.
 #
 # The PHP runs on Hostinger, so the only way in is the hPanel FTP account.
 # Provide the credentials as environment variables:
@@ -10,12 +10,12 @@
 #   FTP_PORT=21          (default 21)
 #   REMOTE_ROOT=/public_html
 #
-# Nothing existing is overwritten: the patch only adds
-# api/mobile/realtime/notify.php and api/mobile/realtime/nearby_riders.php.
+# This script deliberately reads from the canonical project tree. Keep only one
+# copy of each PHP file so a stale patch can never overwrite production code.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PATCH_DIR="$ROOT/server-patch/api/mobile/realtime"
+FLUTTER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_ROOT="$(cd "$FLUTTER_ROOT/.." && pwd)"
 
 : "${FTP_HOST:?set FTP_HOST to the hPanel FTP host}"
 : "${FTP_USER:?set FTP_USER to the hPanel FTP user}"
@@ -23,37 +23,36 @@ PATCH_DIR="$ROOT/server-patch/api/mobile/realtime"
 FTP_PORT="${FTP_PORT:-21}"
 REMOTE_ROOT="${REMOTE_ROOT:-/public_html}"
 
-if [ ! -d "$PATCH_DIR" ]; then
-  echo "patch directory not found: $PATCH_DIR" >&2
-  exit 1
-fi
+FILES=(
+  "api/mobile/realtime/notify.php"
+  "api/mobile/realtime/nearby_riders.php"
+)
 
-echo "=== Uploading the server patch ==="
+for relative in "${FILES[@]}"; do
+  source_file="$PROJECT_ROOT/$relative"
+  if [ ! -f "$source_file" ]; then
+    echo "canonical source file not found: $source_file" >&2
+    exit 1
+  fi
+
+done
+
+echo "=== Uploading canonical server files ==="
 echo "  host  : $FTP_HOST:$FTP_PORT"
 echo "  root  : $REMOTE_ROOT"
-echo "  files : $PATCH_DIR"
 
-curl --silent --show-error --fail \
-  --user "$FTP_USER:$FTP_PASS" \
-  --ftp-create-dirs \
-  --upload-file "$PATCH_DIR/notify.php" \
-  "ftp://$FTP_HOST:$FTP_PORT$REMOTE_ROOT/api/mobile/realtime/notify.php"
-
-curl --silent --show-error --fail \
-  --user "$FTP_USER:$FTP_PASS" \
-  --ftp-create-dirs \
-  --upload-file "$PATCH_DIR/nearby_riders.php" \
-  "ftp://$FTP_HOST:$FTP_PORT$REMOTE_ROOT/api/mobile/realtime/nearby_riders.php"
-
-echo "  uploaded notify.php"
-echo "  uploaded nearby_riders.php"
+for relative in "${FILES[@]}"; do
+  source_file="$PROJECT_ROOT/$relative"
+  curl --silent --show-error --fail \
+    --user "$FTP_USER:$FTP_PASS" \
+    --ftp-create-dirs \
+    --upload-file "$source_file" \
+    "ftp://$FTP_HOST:$FTP_PORT$REMOTE_ROOT/$relative"
+  echo "  uploaded $relative"
+done
 
 echo
 echo "=== Verifying ==="
-curl -s "https://otamzo.com/api/mobile/realtime/nearby_riders.php?store=all&lat=24.853545&lng=74.620191&radius_km=1"
+curl --silent --show-error --fail \
+  "https://otamzo.com/api/mobile/realtime/nearby_riders.php?store=all&lat=24.853545&lng=74.620191&radius_km=1"
 echo
-echo
-echo "=== Enabling the server side OneSignal push ==="
-echo "Open admin/php/config.php on the server and set:"
-echo "  define('ONESIGNAL_APP_ID', '99648958-99e9-4e1e-a015-96e4b512af7d');"
-echo "  define('ONESIGNAL_REST_KEY', '<REST API KEY from OneSignal dashboard>');"

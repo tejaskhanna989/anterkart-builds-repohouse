@@ -166,9 +166,16 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       if (!mounted) return;
       if (res['success'] == true) {
+        final effectiveRaw = res['data']?['effective_available'];
+        final effective = effectiveRaw is int
+            ? effectiveRaw == 1
+            : int.tryParse('${effectiveRaw ?? ''}') == 1;
+        final auth = context.read<AuthProvider>();
+        await auth.setEffectiveAvailability(effective);
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(available ? 'You are now available' : 'You are now unavailable'), backgroundColor: Colors.green));
-        await context.read<AuthProvider>().init();
+        await auth.refreshProfile();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(res['message'] ?? 'Failed to update'), backgroundColor: Colors.red));

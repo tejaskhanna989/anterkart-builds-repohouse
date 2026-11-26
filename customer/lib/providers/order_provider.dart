@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+
 import '../models/order.dart';
 import '../services/api_service.dart';
 
@@ -7,11 +10,29 @@ class OrderProvider extends ChangeNotifier {
   Order? _currentOrder;
   bool _isLoading = false;
   bool _isCreating = false;
+  String? _checkoutAttemptId;
 
   List<Order> get orders => _orders;
   Order? get currentOrder => _currentOrder;
   bool get isLoading => _isLoading;
   bool get isCreating => _isCreating;
+
+  /// Stable idempotency key for one checkout attempt.
+  ///
+  /// It remains unchanged across gateway callbacks and user retries. It is
+  /// reset after the server confirms the order or when checkout details are
+  /// deliberately changed.
+  String get checkoutAttemptId {
+    if (_checkoutAttemptId != null) return _checkoutAttemptId!;
+    final random = math.Random.secure();
+    final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+    _checkoutAttemptId = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return _checkoutAttemptId!;
+  }
+
+  void resetCheckoutAttempt() {
+    _checkoutAttemptId = null;
+  }
 
   Future<void> loadOrders() async {
     _isLoading = true;
@@ -32,8 +53,12 @@ class OrderProvider extends ChangeNotifier {
     return null;
   }
 
-  Future<Map<String, dynamic>> createRazorpayOrder(double amount) async {
-    final res = await ApiService.post('orders/razorpay_order.php', body: {'amount': amount}, auth: true);
+  Future<Map<String, dynamic>> createRazorpayOrder(double amount, {String? checkoutAttemptId}) async {
+    final attemptId = checkoutAttemptId ?? this.checkoutAttemptId;
+    final res = await ApiService.post('orders/razorpay_order.php', body: {
+      'amount': amount,
+      'checkout_attempt_id': attemptId,
+    }, auth: true);
     if (res['success'] == true) return {'success': true, 'data': res['data']};
     return {'success': false, 'message': res['message'] ?? 'Failed to create Razorpay order'};
   }
@@ -51,12 +76,15 @@ class OrderProvider extends ChangeNotifier {
     String? razorpayOrderId,
     String? razorpaySignature,
     bool perKm = false,
+    String? checkoutAttemptId,
   }) async {
     _isCreating = true;
     notifyListeners();
+    final attemptId = checkoutAttemptId ?? this.checkoutAttemptId;
     final body = <String, dynamic>{
       'address': address,
       'payment_method': paymentMethod,
+      'checkout_attempt_id': attemptId,
     };
     if (perKm) body['per_km'] = '1';
     if (deliveryZoneId != null) body['delivery_zone_id'] = deliveryZoneId;

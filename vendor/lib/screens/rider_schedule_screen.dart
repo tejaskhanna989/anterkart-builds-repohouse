@@ -1,7 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
+
+typedef RiderScheduleSaveCallback = Future<bool> Function(
+  int riderId,
+  int day,
+  String start,
+  String end,
+  bool active,
+);
+
+typedef RiderScheduleDeleteCallback = Future<bool> Function(
+  int riderId,
+  int day,
+);
 
 class RiderScheduleScreen extends StatefulWidget {
   const RiderScheduleScreen({super.key});
@@ -26,25 +37,28 @@ class _RiderScheduleScreenState extends State<RiderScheduleScreen> {
   }
 
   Future<void> _loadSchedules() async {
+    if (!mounted) return;
     setState(() { _loading = true; _error = null; });
     try {
-      final res = await ApiService.get('vendor/orders/riders_schedule.php', auth: true);
+      final res = await ApiService.get('vendor/riders_schedule.php', auth: true);
+      if (!mounted) return;
       if (res['success'] == true) {
         setState(() {
-          _riders = List<Map<String, dynamic>>.from(res['data']['riders']);
+          _riders = List<Map<String, dynamic>>.from(res['data']['riders'] ?? []);
           _loading = false;
         });
       } else {
         setState(() { _error = res['message'] ?? 'Failed to load'; _loading = false; });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() { _error = 'Error: $e'; _loading = false; });
     }
   }
 
-  Future<void> _saveSchedule(int riderId, int day, String start, String end, bool active) async {
+  Future<bool> _saveSchedule(int riderId, int day, String start, String end, bool active) async {
     try {
-      final res = await ApiService.post('vendor/orders/rider_schedule_save.php', auth: true, body: {
+      final res = await ApiService.post('vendor/rider_schedule_save.php', auth: true, body: {
         'rider_id': riderId,
         'day_of_week': day,
         'start_time': start,
@@ -53,29 +67,33 @@ class _RiderScheduleScreenState extends State<RiderScheduleScreen> {
       });
       if (res['success'] != true) {
         _showSnack(res['message'] ?? 'Save failed', false);
-      } else {
-        _showSnack('Saved', true);
-        _loadSchedules();
+        return false;
       }
+      _showSnack('Saved', true);
+      await _loadSchedules();
+      return true;
     } catch (e) {
       _showSnack('Error: $e', false);
+      return false;
     }
   }
 
-  Future<void> _deleteSchedule(int riderId, int day) async {
+  Future<bool> _deleteSchedule(int riderId, int day) async {
     try {
-      final res = await ApiService.post('vendor/orders/rider_schedule_delete.php', auth: true, body: {
+      final res = await ApiService.post('vendor/rider_schedule_delete.php', auth: true, body: {
         'rider_id': riderId,
         'day_of_week': day,
       });
       if (res['success'] != true) {
         _showSnack(res['message'] ?? 'Delete failed', false);
-      } else {
-        _showSnack('Deleted', true);
-        _loadSchedules();
+        return false;
       }
+      _showSnack('Deleted', true);
+      await _loadSchedules();
+      return true;
     } catch (e) {
       _showSnack('Error: $e', false);
+      return false;
     }
   }
 
@@ -99,11 +117,11 @@ class _RiderScheduleScreenState extends State<RiderScheduleScreen> {
                       padding: const EdgeInsets.all(16),
                       itemCount: _riders.length,
                       itemBuilder: (_, i) => _RiderScheduleCard(
+                        key: ValueKey(_riders[i]['id']),
                         rider: _riders[i],
                         days: _days,
                         onSave: _saveSchedule,
                         onDelete: _deleteSchedule,
-                        onChanged: _loadSchedules,
                       ),
                     ),
     );
@@ -113,16 +131,15 @@ class _RiderScheduleScreenState extends State<RiderScheduleScreen> {
 class _RiderScheduleCard extends StatefulWidget {
   final Map<String, dynamic> rider;
   final List<String> days;
-  final Function(int, int, String, String, bool) onSave;
-  final Function(int, int) onDelete;
-  final VoidCallback onChanged;
+  final RiderScheduleSaveCallback onSave;
+  final RiderScheduleDeleteCallback onDelete;
 
   const _RiderScheduleCard({
+    super.key,
     required this.rider,
     required this.days,
     required this.onSave,
     required this.onDelete,
-    required this.onChanged,
   });
 
   @override
@@ -130,94 +147,232 @@ class _RiderScheduleCard extends StatefulWidget {
 }
 
 class _RiderScheduleCardState extends State<_RiderScheduleCard> {
-  final Map<int, Map<String, dynamic>> _edits = {};
+  final Map<int, _ScheduleDraft> _drafts = {};
+  int? _busyDay;
 
-  Map<String, dynamic> _getSchedule(List<dynamic> schedules, int day) {
-    try {
-      return schedules.firstWhere((s) => s['day_of_week'] == day) as Map<String, dynamic>;
-    } catch (_) {
-      return {'start_time': '09:00', 'end_time': '22:00', 'is_active': false};
+  @override
+  void initState() {
+    super.initState();
+    _rebuildDrafts();
+  }
+
+  @override
+  void didUpdateWidget(covariant _RiderScheduleCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.rider != widget.rider) {
+      _rebuildDrafts();
     }
+  }
+
+  @override
+  void dispose() {
+    for (final draft in _drafts.values) {
+      draft.dispose();
+    }
+    super.dispose();
+  }
+
+  void _rebuildDrafts() {
+    for (final draft in _drafts.values) {
+      draft.dispose();
+    }
+    _drafts.clear();
+
+    final schedules = List<Map<String, dynamic>>.from(widget.rider['schedules'] ?? []);
+    for (var day = 0; day < 7; day++) {
+      Map<String, dynamic>? schedule;
+      for (final row in schedules) {
+        if (int.tryParse('${row['day_of_week'] ?? ''}') == day) {
+          schedule = row;
+          break;
+        }
+      }
+      _drafts[day] = _ScheduleDraft(
+        startController: TextEditingController(text: _clock(schedule?['start_time'], '09:00')),
+        endController: TextEditingController(text: _clock(schedule?['end_time'], '22:00')),
+        active: _asBool(schedule?['is_active']),
+        exists: schedule != null,
+      );
+    }
+  }
+
+  static String _clock(dynamic value, String fallback) {
+    final text = '${value ?? ''}'.trim();
+    if (text.length >= 5) return text.substring(0, 5);
+    return fallback;
+  }
+
+  static bool _asBool(dynamic value) {
+    return value == true || value == 1 || '${value ?? ''}' == '1';
+  }
+
+  bool _validTime(String value) {
+    return RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(value);
+  }
+
+  Future<void> _save(int day) async {
+    final draft = _drafts[day];
+    if (draft == null) return;
+    final start = draft.startController.text.trim();
+    final end = draft.endController.text.trim();
+    if (!_validTime(start) || !_validTime(end)) {
+      _showLocalError('Use a valid 24-hour time in HH:MM format.');
+      return;
+    }
+
+    setState(() { _busyDay = day; });
+    await widget.onSave(
+      int.tryParse('${widget.rider['id'] ?? ''}') ?? 0,
+      day,
+      start,
+      end,
+      draft.active,
+    );
+    if (!mounted) return;
+    setState(() { _busyDay = null; });
+  }
+
+  Future<void> _delete(int day) async {
+    final riderId = int.tryParse('${widget.rider['id'] ?? ''}') ?? 0;
+    if (riderId <= 0) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete ${widget.days[day]} schedule?'),
+        content: const Text('The rider will no longer be scheduled for this weekday.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() { _busyDay = day; });
+    await widget.onDelete(riderId, day);
+    if (!mounted) return;
+    setState(() { _busyDay = null; });
+  }
+
+  void _showLocalError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      backgroundColor: Colors.red,
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     final rider = widget.rider;
-    final schedules = List<Map<String, dynamic>>.from(rider['schedules'] ?? []);
+    final riderName = '${rider['name'] ?? 'Rider'}';
+    final initial = riderName.isNotEmpty ? riderName[0].toUpperCase() : 'R';
+    final status = '${rider['status'] ?? 'unknown'}';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: ExpansionTile(
         initiallyExpanded: false,
         title: Row(children: [
-          CircleAvatar(child: Text(rider['name'][0])),
+          CircleAvatar(child: Text(initial)),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(rider['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-            Text('${rider['phone']} • ${rider['vehicle']}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(riderName, style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text('${rider['phone'] ?? ''} • ${rider['vehicle'] ?? ''}',
+              style: const TextStyle(fontSize: 12, color: Colors.grey)),
           ])),
           Chip(
-            label: Text(rider['status'], style: const TextStyle(fontSize: 11)),
-            backgroundColor: rider['status'] == 'active' ? Colors.green[50] : Colors.red[50],
-            labelStyle: TextStyle(color: rider['status'] == 'active' ? Colors.green[800] : Colors.red[800]),
+            label: Text(status, style: const TextStyle(fontSize: 11)),
+            backgroundColor: status == 'active' ? Colors.green[50] : Colors.red[50],
+            labelStyle: TextStyle(color: status == 'active' ? Colors.green[800] : Colors.red[800]),
           ),
         ]),
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Column(
               children: [
-                Row(children: [
-                  const SizedBox(width: 40),
-                  const SizedBox(width: 100, child: Text('Start', style: TextStyle(fontWeight: FontWeight.bold))),
-                  const SizedBox(width: 100, child: Text('End', style: TextStyle(fontWeight: FontWeight.bold))),
-                  const SizedBox(width: 60, child: Text('Active', style: TextStyle(fontWeight: FontWeight.bold))),
+                const Row(children: [
+                  SizedBox(width: 76, child: Text('Day', style: TextStyle(fontWeight: FontWeight.bold))),
+                  Expanded(child: Text('Start', style: TextStyle(fontWeight: FontWeight.bold))),
+                  SizedBox(width: 8),
+                  Expanded(child: Text('End', style: TextStyle(fontWeight: FontWeight.bold))),
+                  SizedBox(width: 58, child: Text('Active', style: TextStyle(fontWeight: FontWeight.bold))),
                 ]),
+                const SizedBox(height: 6),
                 ...List.generate(7, (day) {
-                  final sched = _getSchedule(rider['schedules'] ?? [], day);
-                  final isEditing = _edits.containsKey(day);
-                  final startCtrl = TextEditingController(text: isEditing ? _edits[day]!['start'] : (sched['start_time']?.substring(0, 5) ?? '09:00'));
-                  final endCtrl = TextEditingController(text: isEditing ? _edits[day]!['end'] : (sched['end_time']?.substring(0, 5) ?? '22:00'));
-                  final active = isEditing ? _edits[day]!['active'] : (sched['is_active'] ?? false);
-
+                  final draft = _drafts[day];
+                  if (draft == null) return const SizedBox.shrink();
+                  final busy = _busyDay == day;
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     child: Row(children: [
-                      SizedBox(width: 40, child: Text(widget.days[day], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+                      SizedBox(
+                        width: 76,
+                        child: Text(widget.days[day], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                      ),
                       Expanded(
-                        child: isEditing
-                            ? Row(children: [
-                                Expanded(child: TextField(controller: startCtrl, decoration: const InputDecoration(isDense: true, hintText: 'HH:MM'), keyboardType: TextInputType.datetime)),
-                                const SizedBox(width: 8),
-                                Expanded(child: TextField(controller: endCtrl, decoration: const InputDecoration(isDense: true, hintText: 'HH:MM'), keyboardType: TextInputType.datetime)),
-                                Checkbox(value: active, onChanged: (v) => setState(() => _edits[day] = {'start': startCtrl.text, 'end': endCtrl.text, 'active': v ?? false})),
-                              ])
-                            : Row(children: [
-                                SizedBox(width: 100, child: Text(sched['start_time']?.substring(0, 5) ?? '—', style: TextStyle(color: sched['is_active'] ? null : Colors.grey))),
-                                SizedBox(width: 100, child: Text(sched['end_time']?.substring(0, 5) ?? '—', style: TextStyle(color: sched['is_active'] ? null : Colors.grey))),
-                                Checkbox(value: sched['is_active'] ?? false, onChanged: null),
-                              ]),
+                        child: TextField(
+                          controller: draft.startController,
+                          enabled: !busy,
+                          decoration: const InputDecoration(isDense: true, hintText: '09:00'),
+                          keyboardType: TextInputType.time,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: draft.endController,
+                          enabled: !busy,
+                          decoration: const InputDecoration(isDense: true, hintText: '22:00'),
+                          keyboardType: TextInputType.time,
+                        ),
+                      ),
+                      SizedBox(
+                        width: 58,
+                        child: Checkbox(
+                          value: draft.active,
+                          onChanged: busy ? null : (value) => setState(() => draft.active = value ?? false),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Save schedule',
+                        onPressed: busy ? null : () => _save(day),
+                        icon: busy
+                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.save_outlined),
+                      ),
+                      IconButton(
+                        tooltip: draft.exists ? 'Delete schedule' : 'No schedule to delete',
+                        onPressed: busy || !draft.exists ? null : () => _delete(day),
+                        icon: const Icon(Icons.delete_outline),
                       ),
                     ]),
                   );
                 }),
-                const SizedBox(height: 12),
-                Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                  TextButton.icon(
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Schedule'),
-                    onPressed: () {
-                      setState(() {
-                        _edits[0] = {'start': '09:00', 'end': '22:00', 'active': true};
-                      });
-                    },
-                  ),
-                ]),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+class _ScheduleDraft {
+  final TextEditingController startController;
+  final TextEditingController endController;
+  bool active;
+  bool exists;
+
+  _ScheduleDraft({
+    required this.startController,
+    required this.endController,
+    required this.active,
+    required this.exists,
+  });
+
+  void dispose() {
+    startController.dispose();
+    endController.dispose();
   }
 }

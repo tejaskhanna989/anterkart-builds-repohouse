@@ -1,7 +1,7 @@
 name: food_multi_customer
 description: Food Multi Customer App
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+4002
 
 environment:
   sdk: ^3.0.0

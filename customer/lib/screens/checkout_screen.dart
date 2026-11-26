@@ -153,6 +153,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       razorpayOrderId: r.orderId,
       razorpaySignature: r.signature,
       perKm: _quotedFee != null,
+      checkoutAttemptId: context.read<OrderProvider>().checkoutAttemptId,
     );
     if (!mounted) return;
     setState(() => _placing = false);
@@ -160,6 +161,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (!mounted) return;
       await context.read<CartProvider>().loadCart();
       if (!mounted) return;
+      context.read<OrderProvider>().resetCheckoutAttempt();
       Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => OrderSuccessScreen(orderNumber: result['data']['order_number'])), (r) => false);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Payment verified but order failed'), backgroundColor: Colors.red));
@@ -196,10 +198,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 groupValue: _deliveryZoneId,
                 activeColor: const Color(0xFF2563EB),
                 // ignore: deprecated_member_use
-                onChanged: (v) => setState(() {
+                onChanged: _placing ? null : (v) => setState(() {
                   _deliveryZoneId = v;
                   _addressController.text = a.address;
                   _address = a.address;
+                  context.read<OrderProvider>().resetCheckoutAttempt();
                 }),
               )),
             TextField(
@@ -209,7 +212,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 hintText: 'Enter delivery address',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              onChanged: (v) => _address = v,
+              enabled: !_placing,
+              onChanged: (v) {
+                _address = v;
+                context.read<OrderProvider>().resetCheckoutAttempt();
+              },
             ),
             const SizedBox(height: 24),
             const Text('Payment Method', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -223,7 +230,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 groupValue: _paymentMethod,
                 activeColor: const Color(0xFF2563EB),
                 // ignore: deprecated_member_use
-                onChanged: (v) => setState(() => _paymentMethod = v!),
+                onChanged: _placing ? null : (v) => setState(() {
+                  _paymentMethod = v!;
+                  context.read<OrderProvider>().resetCheckoutAttempt();
+                }),
               ),
             if (_settings.razorpayEnabled)
               RadioListTile<String>(
@@ -234,7 +244,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 groupValue: _paymentMethod,
                 activeColor: const Color(0xFF2563EB),
                 // ignore: deprecated_member_use
-                onChanged: (v) => setState(() => _paymentMethod = v!),
+                onChanged: _placing ? null : (v) => setState(() {
+                  _paymentMethod = v!;
+                  context.read<OrderProvider>().resetCheckoutAttempt();
+                }),
               ),
             if (_settingsLoaded && !_settings.codEnabled && !_settings.razorpayEnabled)
               const Padding(
@@ -249,7 +262,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 prefixIcon: const Icon(Icons.local_offer_outlined),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 suffixIcon: TextButton(onPressed: () {}, child: const Text('Apply')),
+                enabled: !_placing,
               ),
+              onChanged: (_) => context.read<OrderProvider>().resetCheckoutAttempt(),
             ),
             const SizedBox(height: 24),
             Builder(builder: (context) {
@@ -371,7 +386,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         grandTotal += g.subtotal + g.subtotal * 0.05 + (_quotedFee ?? vs.deliveryFee);
       }
       final total = grandTotal;
-      final rzpRes = await context.read<OrderProvider>().createRazorpayOrder(total);
+      final rzpRes = await context.read<OrderProvider>().createRazorpayOrder(
+        total,
+        checkoutAttemptId: context.read<OrderProvider>().checkoutAttemptId,
+      );
       if (!mounted) return;
       if (rzpRes['success'] != true) {
         setState(() => _placing = false);
@@ -396,6 +414,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           couponCode: _couponController.text.isNotEmpty ? _couponController.text : null,
           razorpayPaymentId: 'pay_mock_${DateTime.now().millisecondsSinceEpoch}', razorpayOrderId: mockId, razorpaySignature: 'mock_sig',
           perKm: _quotedFee != null,
+          checkoutAttemptId: context.read<OrderProvider>().checkoutAttemptId,
         );
         if (!mounted) return;
         setState(() => _placing = false);
@@ -403,6 +422,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           if (!mounted) return;
           await context.read<CartProvider>().loadCart();
           if (!mounted) return;
+          context.read<OrderProvider>().resetCheckoutAttempt();
           Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => OrderSuccessScreen(orderNumber: result2['data']['order_number'])), (r) => false);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result2['message'] ?? 'Failed'), backgroundColor: Colors.red));
@@ -429,6 +449,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       lng: loc.lng,
       couponCode: _couponController.text.isNotEmpty ? _couponController.text : null,
       perKm: _quotedFee != null,
+      checkoutAttemptId: context.read<OrderProvider>().checkoutAttemptId,
     );
     if (!mounted) return;
     setState(() => _placing = false);
@@ -436,6 +457,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (!mounted) return;
       await context.read<CartProvider>().loadCart();
       if (!mounted) return;
+      context.read<OrderProvider>().resetCheckoutAttempt();
       Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => OrderSuccessScreen(orderNumber: result['data']['order_number'])), (r) => false);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Failed'), backgroundColor: Colors.red));

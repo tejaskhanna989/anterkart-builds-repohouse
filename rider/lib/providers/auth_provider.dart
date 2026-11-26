@@ -37,6 +37,55 @@ class AuthProvider extends ChangeNotifier {
       await ApiService.clearToken();
     }
     notifyListeners();
+
+    // Cached rider data can contain yesterday's availability. Refresh it from
+    // the server before the profile screen is opened so the toggle reflects
+    // the effective dated override used by dispatch.
+    if (isLoggedIn) {
+      await refreshProfile();
+    }
+  }
+
+  Future<void> _persistRider(Rider rider) async {
+    _rider = rider;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('rider_data', jsonEncode({
+      'id': rider.id,
+      'name': rider.name,
+      'email': rider.email,
+      'phone': rider.phone,
+      'vehicle': rider.vehicle,
+      'status': rider.status,
+      'available': rider.available,
+      'lat': rider.lat,
+      'lng': rider.lng,
+    }));
+  }
+
+  /// Refresh the rider profile and effective availability from the server.
+  Future<bool> refreshProfile() async {
+    if (_token == null) return false;
+    final res = await ApiService.get('rider/auth/profile.php', auth: true);
+    if (res['success'] != true) return false;
+    final raw = res['data']?['rider'];
+    if (raw is! Map) return false;
+    try {
+      final rider = Rider.fromJson(Map<String, dynamic>.from(raw));
+      await _persistRider(rider);
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Apply the authoritative effective availability returned by an availability
+  /// mutation immediately, without waiting for another profile request.
+  Future<void> setEffectiveAvailability(bool available) async {
+    final rider = _rider;
+    if (rider == null) return;
+    await _persistRider(rider.copyWith(available: available ? 1 : 0));
+    notifyListeners();
   }
 
   Future<String?> login(String email, String password) async {

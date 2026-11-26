@@ -15,7 +15,7 @@ class CategoryProvider extends ChangeNotifier {
     _isLoading = true;
     _error = null;
     notifyListeners();
-    final res = await ApiService.get('api/categories.php', auth: true);
+    final res = await ApiService.get('categories/list.php', auth: true);
     if (res['success'] == true) {
       _categories = (res['data']['categories'] as List? ?? []).map((j) => Category.fromJson(j)).toList();
     } else {

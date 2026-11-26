@@ -68,9 +68,9 @@ class ApiService {
       if (response.statusCode >= 400) {
         try {
           final errorBody = jsonDecode(response.body);
-          return {'success': false, 'message': errorBody['message'] ?? 'Request failed with status \${response.statusCode}', 'data': {}, 'statusCode': response.statusCode};
+          return {'success': false, 'message': errorBody['message'] ?? 'Request failed with status ${response.statusCode}', 'data': {}, 'statusCode': response.statusCode};
         } catch (_) {
-          return {'success': false, 'message': 'Request failed with status \${response.statusCode}', 'data': {}, 'statusCode': response.statusCode};
+          return {'success': false, 'message': 'Request failed with status ${response.statusCode}', 'data': {}, 'statusCode': response.statusCode};
         }
       }
       return jsonDecode(response.body);
