@@ -17,7 +17,14 @@ STAGE="/tmp/otamzo-apk-release"
 APPS="${OTAMZO_APPS:-customer vendor rider}"
 
 ssh_opts=(-p "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR)
+# scp spells the port option with a capital P; -p means "preserve times".
+scp_opts=(-P "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR)
 export SSHPASS="$SSH_PASSWORD"
+
+if ! command -v sshpass > /dev/null 2>&1; then
+  echo "::error::sshpass is required to publish the APKs"
+  exit 1
+fi
 
 remote() {
   sshpass -e ssh "${ssh_opts[@]}" "$SSH_USER@$SSH_HOST" "$@"
@@ -35,7 +42,7 @@ for app in $APPS; do
 
   files=$(cd "$src" && ls -1)
   for f in $files; do
-    sshpass -e scp "${ssh_opts[@]}" "$src/$f" "$SSH_USER@$SSH_HOST:$STAGE/$app/$f"
+    sshpass -e scp "${scp_opts[@]}" "$src/$f" "$SSH_USER@$SSH_HOST:$STAGE/$app/$f"
   done
 
   # The server recomputes every digest and compares it with the one computed

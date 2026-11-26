@@ -219,14 +219,23 @@ jobs:
         run: |
           set -euo pipefail
           for app in customer vendor rider; do
-            cd "dist/$app"
-            sha1sum app-*-release.apk > checksums.sha1
-            cp checksums.sha1 checksums.txt
-            while read -r sum name; do
-              printf '%s  %s\n' "$sum" "$name" > "$name.sha1"
-            done < checksums.sha1
+            (
+              cd "dist/$app"
+              sha1sum app-*-release.apk > checksums.sha1
+              cp checksums.sha1 checksums.txt
+              while read -r sum name; do
+                printf '%s  %s\n' "$sum" "$name" > "$name.sha1"
+              done < checksums.sha1
+            )
           done
           cat dist/*/checksums.sha1
+
+      - name: Install publishing tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq sshpass
+          command -v sshpass
 
       - name: Publish the download page
         env:
