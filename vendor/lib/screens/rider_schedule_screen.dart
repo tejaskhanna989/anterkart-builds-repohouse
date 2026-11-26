@@ -315,7 +315,9 @@ class _RiderScheduleCardState extends State<_RiderScheduleCard> {
                           controller: draft.startController,
                           enabled: !busy,
                           decoration: const InputDecoration(isDense: true, hintText: '09:00'),
-                          keyboardType: TextInputType.time,
+                          // Flutter has no TextInputType.time; the datetime
+                          // keyboard is the one that offers a time picker.
+                          keyboardType: TextInputType.datetime,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -324,7 +326,7 @@ class _RiderScheduleCardState extends State<_RiderScheduleCard> {
                           controller: draft.endController,
                           enabled: !busy,
                           decoration: const InputDecoration(isDense: true, hintText: '22:00'),
-                          keyboardType: TextInputType.time,
+                          keyboardType: TextInputType.datetime,
                         ),
                       ),
                       SizedBox(

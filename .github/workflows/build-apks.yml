@@ -139,6 +139,23 @@ jobs:
             fi
           done
 
+      # `flutter test` only compiles the files the tests import. A screen with
+      # a compile error can therefore pass the test step and only break in the
+      # much slower build step, so the whole app is analysed first.
+      - name: Analyse the apps
+        run: |
+          set -euo pipefail
+          failed=0
+          for proj in customer vendor rider; do
+            echo "::group::analyze $proj"
+            if ! (cd "$proj" && flutter analyze --no-fatal-infos --no-fatal-warnings); then
+              echo "::error::flutter analyze found errors in $proj"
+              failed=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $failed
+
       - name: Run tests
         run: |
           set -euo pipefail
