@@ -19,6 +19,8 @@ STAGE="/tmp/otamzo-apk-release/${GITHUB_RUN_ID:-$$}"
 LOCK="/tmp/otamzo-apk-publish.lock"
 
 APPS="${OTAMZO_APPS:-customer vendor rider}"
+# The directory that holds one subdirectory per app with the release files.
+DIST_ROOT="${OTAMZO_DIST_ROOT:-dist}"
 
 ssh_opts=(-p "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR)
 # scp spells the port option with a capital P; -p means "preserve times".
@@ -36,14 +38,23 @@ remote() {
 
 cleanup() {
   remote "rm -rf '$STAGE'" || true
-  remote "rm -f '$LOCK'" || true
+  remote "rmdir '$LOCK' 2>/dev/null || true" || true
 }
 trap cleanup EXIT
 
 # Only one release may publish at a time. The lock is taken on the server, so
-# it also protects against a run in a different workspace.
+# it also protects against a run in a different workspace. A lock that is
+# older than an hour belongs to a run that died and is removed.
 echo "=== acquiring the publish lock"
-if ! remote "if mkdir '$LOCK' 2>/dev/null; then echo acquired; else echo 'another release is publishing' >&2; exit 1; fi"; then
+if ! remote "if mkdir '$LOCK' 2>/dev/null; then echo acquired; else
+      age=\$(find '$LOCK' -maxdepth 0 -mmin +60 | wc -l)
+      if [ \"\$age\" -gt 0 ]; then
+        rm -rf '$LOCK' && mkdir '$LOCK' && echo 'stale lock removed'
+      else
+        echo 'another release is publishing' >&2
+        exit 1
+      fi
+    fi"; then
   echo "::error::Another release is publishing right now. Nothing was changed."
   exit 1
 fi
@@ -51,7 +62,7 @@ fi
 remote "rm -rf '$STAGE' && mkdir -p '$STAGE'"
 
 for app in $APPS; do
-  src="dist/$app"
+  src="$DIST_ROOT/$app"
   if [ ! -d "$src" ]; then
     echo "::error::No build output for $app at $src"
     exit 1
@@ -60,8 +71,17 @@ for app in $APPS; do
   echo "=== staging $app"
   remote "rm -rf '$STAGE/$app' && mkdir -p '$STAGE/$app'"
 
-  files=$(cd "$src" && ls -1)
-  for f in $files; do
+  files=()
+  while IFS= read -r f; do
+    files+=("$f")
+  done < <(cd "$src" && ls -1)
+
+  if [ "${#files[@]}" -eq 0 ]; then
+    echo "::error::$src is empty"
+    exit 1
+  fi
+
+  for f in "${files[@]}"; do
     sshpass -e scp "${scp_opts[@]}" "$src/$f" "$SSH_USER@$SSH_HOST:$STAGE/$app/$f"
   done
 
@@ -77,9 +97,7 @@ for app in $APPS; do
   remote "set -e
     target='$WEBROOT/download/$app'
     mkdir -p \"\$target\"
-    for f in $files; do
-      mv -f '$STAGE/$app/'\"\$f\" \"\$target/\$f\"
-    done
+    mv -f '$STAGE/$app/'* \"\$target/\"
     chmod 644 \"\$target\"/*
     cd \"\$target\"
     sha1sum -c checksums.sha1

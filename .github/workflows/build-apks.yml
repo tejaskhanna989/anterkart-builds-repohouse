@@ -281,37 +281,6 @@ jobs:
           done
           cat dist/*/checksums.sha1
 
-      - name: Install publishing tools
-        run: |
-          set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq sshpass
-          command -v sshpass
-
-      - name: Publish the download page
-        env:
-          OTAMZO_SSH_PASSWORD: ${{ secrets.OTAMZO_SSH_PASSWORD }}
-        run: |
-          set -euo pipefail
-          export SSHPASS="$OTAMZO_SSH_PASSWORD"
-          SSH_HOST=91.108.107.50
-          SSH_PORT=65002
-          SSH_USER=u881842192
-          WEBROOT=/home/u881842192/domains/otamzo.com/public_html
-          sshpass -e scp -P "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
-            tools/download/index.html "$SSH_USER@$SSH_HOST:/tmp/otamzo-download-index.html"
-          sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
-            "$SSH_USER@$SSH_HOST" "install -m 644 /tmp/otamzo-download-index.html '$WEBROOT/download/index.html' && rm -f /tmp/otamzo-download-index.html"
-          echo "download page published"
-
-      - name: Publish APKs to production
-        env:
-          OTAMZO_SSH_PASSWORD: ${{ secrets.OTAMZO_SSH_PASSWORD }}
-        run: |
-          set -euo pipefail
-          chmod +x tools/publish_apks.sh
-          ./tools/publish_apks.sh
-
       - name: Upload Customer APK artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -332,3 +301,71 @@ jobs:
           name: rider-apk
           path: dist/rider/
           retention-days: 30
+
+      - name: Upload the download page
+        uses: actions/upload-artifact@v4
+        with:
+          name: download-page
+          path: tools/download/index.html
+          retention-days: 30
+
+  # Publishing is a separate job so that a failure while copying the release
+  # to the server can be retried with `gh run rerun --failed` without paying
+  # for another twelve Gradle builds.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download the release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release
+
+      - name: Arrange the artifacts
+        run: |
+          set -euo pipefail
+          for app in customer vendor rider; do
+            if [ ! -d "release/$app-apk" ]; then
+              echo "::error::The $app artifacts are missing"
+              exit 1
+            fi
+            mkdir -p "release/$app"
+            cp -a "release/$app-apk/." "release/$app/"
+          done
+          ls -l release/customer release/vendor release/rider
+
+      - name: Install publishing tools
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq sshpass
+          command -v sshpass
+
+      - name: Publish the download page
+        env:
+          OTAMZO_SSH_PASSWORD: ${{ secrets.OTAMZO_SSH_PASSWORD }}
+        run: |
+          set -euo pipefail
+          export SSHPASS="$OTAMZO_SSH_PASSWORD"
+          SSH_HOST=91.108.107.50
+          SSH_PORT=65002
+          SSH_USER=u881842192
+          WEBROOT=/home/u881842192/domains/otamzo.com/public_html
+          sshpass -e scp -P "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
+            release/download-page/index.html "$SSH_USER@$SSH_HOST:/tmp/otamzo-download-index.html"
+          sshpass -e ssh -p "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
+            "$SSH_USER@$SSH_HOST" "install -m 644 /tmp/otamzo-download-index.html '$WEBROOT/download/index.html' && rm -f /tmp/otamzo-download-index.html"
+          echo "download page published"
+
+      - name: Publish APKs to production
+        env:
+          OTAMZO_SSH_PASSWORD: ${{ secrets.OTAMZO_SSH_PASSWORD }}
+        run: |
+          set -euo pipefail
+          chmod +x tools/publish_apks.sh
+          OTAMZO_DIST_ROOT=release ./tools/publish_apks.sh
