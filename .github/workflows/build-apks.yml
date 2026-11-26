@@ -314,6 +314,9 @@ jobs:
   # for another twelve Gradle builds.
   publish:
     needs: build
+    # A pull request must never touch production, and a pull request from a
+    # fork cannot read the signing or the server secrets anyway.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
