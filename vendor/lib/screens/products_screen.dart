@@ -102,7 +102,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               )
             : const CircleAvatar(child: Icon(Icons.fastfood)),
         title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text('₹${p.price.toStringAsFixed(0)}  •  Stock ${p.stock}${p.categoryName.isNotEmpty ? '  •  ${p.categoryName}' : ''}'),
+        subtitle: Text('₹${p.price.toStringAsFixed(0)}${p.categoryName.isNotEmpty ? '  •  ${p.categoryName}' : ''}'),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -138,7 +138,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
     final nameC = TextEditingController(text: p?.name ?? '');
     final priceC = TextEditingController(text: p != null ? '${p.price}' : '');
     final mrpC = TextEditingController(text: p != null ? '${p.mrp}' : '');
-    final stockC = TextEditingController(text: p != null ? '${p.stock}' : '0');
     final descC = TextEditingController(text: p?.description ?? '');
     bool isVeg = (p?.isVeg ?? 0) == 1;
     bool active = p?.isActive ?? true;
@@ -209,20 +208,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               const InputDecoration(labelText: 'MRP', border: OutlineInputBorder()))),
                 ]),
                 const SizedBox(height: 10),
-                Row(children: [
-                  Expanded(
-                      child: TextField(
-                          controller: stockC,
-                          keyboardType: TextInputType.number,
-                          decoration:
-                              const InputDecoration(labelText: 'Stock', border: OutlineInputBorder()))),
-                  const SizedBox(width: 10),
-                  Expanded(
-                      child: TextField(
-                          controller: descC,
-                          decoration:
-                              const InputDecoration(labelText: 'Description', border: OutlineInputBorder()))),
-                ]),
+                TextField(
+                    controller: descC,
+                    decoration: const InputDecoration(
+                        labelText: 'Description', border: OutlineInputBorder())),
                 const SizedBox(height: 10),
                 SwitchListTile(title: const Text('Vegetarian'), value: isVeg, onChanged: (v) => setSheet(() => isVeg = v)),
                 SwitchListTile(title: const Text('Visible to customers'), value: active, onChanged: (v) => setSheet(() => active = v)),
@@ -243,7 +232,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         price: price,
                         mrp: double.tryParse(mrpC.text),
                         categoryId: selectedCategoryId,
-                        stock: int.tryParse(stockC.text) ?? 0,
                         description: descC.text.trim(),
                         status: active ? 'active' : 'inactive',
                         isVeg: isVeg ? 1 : 0,

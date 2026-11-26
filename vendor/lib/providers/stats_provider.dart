@@ -7,7 +7,6 @@ class StatsProvider extends ChangeNotifier {
   int pendingOrders = 0;
   int totalProducts = 0;
   int activeProducts = 0;
-  int lowStock = 0;
   bool _isLoading = false;
 
   bool get isLoading => _isLoading;
@@ -23,7 +22,6 @@ class StatsProvider extends ChangeNotifier {
       pendingOrders = int.tryParse('${d['pending_orders']}') ?? 0;
       totalProducts = int.tryParse('${d['total_products']}') ?? 0;
       activeProducts = int.tryParse('${d['active_products']}') ?? 0;
-      lowStock = int.tryParse('${d['low_stock']}') ?? 0;
     }
     _isLoading = false;
     notifyListeners();

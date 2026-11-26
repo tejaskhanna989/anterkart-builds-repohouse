@@ -5,7 +5,6 @@ class Product {
   final double price;
   final double mrp;
   final String image;
-  final int stock;
   final int? categoryId;
   final String? categoryName;
   final String? unit;
@@ -23,7 +22,6 @@ class Product {
     required this.price,
     this.mrp = 0,
     this.image = '',
-    this.stock = 0,
     this.categoryId,
     this.categoryName,
     this.unit,
@@ -42,7 +40,6 @@ class Product {
     price: double.tryParse('${j['price']}') ?? 0,
     mrp: double.tryParse('${j['mrp']}') ?? 0,
     image: j['image'] ?? '',
-    stock: j['stock'] is int ? j['stock'] : int.tryParse('${j['stock']}') ?? 0,
     categoryId: j['category_id'] is int ? j['category_id'] : int.tryParse('${j['category_id']}'),
     categoryName: j['category_name'],
     unit: j['unit'],

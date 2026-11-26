@@ -289,14 +289,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ),
       child: SafeArea(
         top: false,
-        child: p.stock <= 0
-            ? Container(
-                height: 52,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(color: AppColors.lightGrey, borderRadius: BorderRadius.circular(14)),
-                child: const Text('Out of Stock', style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w700, fontSize: 16)),
-              )
-            : Row(
+        child: Row(
                 children: [
                   Expanded(
                     child: Column(

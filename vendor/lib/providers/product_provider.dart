@@ -53,7 +53,6 @@ class ProductProvider extends ChangeNotifier {
     double? mrp,
     int? categoryId,
     String description = '',
-    int stock = 0,
     String status = 'active',
     int isVeg = 0,
   }) async {
@@ -62,7 +61,6 @@ class ProductProvider extends ChangeNotifier {
       'price': price,
       'mrp': mrp ?? price,
       'description': description,
-      'stock': stock,
       'status': status,
       'is_veg': isVeg,
     };

@@ -266,8 +266,6 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             children: [
               Expanded(child: _statCard('Products', '${stats.totalProducts}', '${stats.activeProducts} active', Icons.inventory_2_outlined)),
-              const SizedBox(width: 12),
-              Expanded(child: _statCard('Low stock', '${stats.lowStock}', 'restock soon', Icons.warning_amber_outlined)),
             ],
           ),
           const SizedBox(height: 20),
