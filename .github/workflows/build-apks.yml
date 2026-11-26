@@ -208,9 +208,10 @@ jobs:
               echo "$report" | grep -E "Verified using v[123] scheme|Signer #1 certificate SHA-256 digest"
               echo "$report" | grep -q "Verified using v2 scheme" || { echo "::error::$apk has no v2 signature"; exit 1; }
               echo "$report" | grep -q "Verified using v3 scheme" || { echo "::error::$apk has no v3 signature"; exit 1; }
-              digest=$(echo "$report" | grep "Signer #1 certificate SHA-256 digest" | head -1 | sed 's/.*: //' | tr -d '\r')
-              if [ "$digest" != "${CERT[$app]}" ]; then
-                echo "::error::$apk is signed with $digest, expected ${CERT[$app]}"
+              digest=$(echo "$report" | grep "Signer #1 certificate SHA-256 digest" | head -1 | sed 's/.*: //' | tr -d '\r' | tr -d ':' | tr 'A-Z' 'a-z')
+              expected=$(echo "${CERT[$app]}" | tr -d ':' | tr 'A-Z' 'a-z')
+              if [ "$digest" != "$expected" ]; then
+                echo "::error::$apk is signed with $digest, expected $expected"
                 exit 1
               fi
               python3 tools/verify_apk.py "$apk" \
