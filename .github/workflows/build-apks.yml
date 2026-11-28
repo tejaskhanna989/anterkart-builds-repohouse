@@ -18,7 +18,7 @@ env:
   # Every published variant of an app carries the same version code, so a user
   # can switch between the arm64 and armv7 build without Android treating the
   # second install as a downgrade.
-  MIN_VERSION_CODE: '4003'
+  MIN_VERSION_CODE: '4004'
 
 jobs:
   build:

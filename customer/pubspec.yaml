@@ -1,7 +1,7 @@
 name: food_multi_customer
 description: Food Multi Customer App
 publish_to: 'none'
-version: 1.0.2+4003
+version: 1.0.2+4004
 
 environment:
   sdk: ^3.0.0
@@ -32,3 +32,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/logo.png
